@@ -1,0 +1,4 @@
+- 【升级】`vk-unicloud-admin-ui` 的 npm 包（执行`npm i vk-unicloud-admin-ui@1.25.1 --registry https://registry.npmjs.org/`）
+- 【升级】`vk依赖` [详情](https://ext.dcloud.net.cn/plugin?id=4157&update_log)
+- 【重要】`router` 临时移除 `"runtime": "Nodejs18"` 配置，以便兼容 `HBuilderX 5.15` 版本
+- 【修复】`万能表格` 的 `rightBtnsMore` 按钮第二次点击可能会报错的问题

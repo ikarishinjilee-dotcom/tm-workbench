@@ -1,0 +1,22 @@
+[
+  {
+    "IndexName": "consultant_id",
+    "MgoKeySchema": { "MgoIndexKeys": [{ "Name": "consultant_id", "Direction": "1" }], "MgoIsUnique": false }
+  },
+  {
+    "IndexName": "last_followup_at",
+    "MgoKeySchema": { "MgoIndexKeys": [{ "Name": "last_followup_at", "Direction": "-1", "Type": "long" }], "MgoIsUnique": false }
+  },
+  {
+    "IndexName": "parent_name",
+    "MgoKeySchema": { "MgoIndexKeys": [{ "Name": "parent_name", "Direction": "1" }], "MgoIsUnique": false }
+  },
+  {
+    "IndexName": "contact_phone",
+    "MgoKeySchema": { "MgoIndexKeys": [{ "Name": "contact_phone", "Direction": "1" }], "MgoIsUnique": false }
+  },
+  {
+    "IndexName": "status",
+    "MgoKeySchema": { "MgoIndexKeys": [{ "Name": "status", "Direction": "1" }], "MgoIsUnique": false }
+  }
+]
