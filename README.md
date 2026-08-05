@@ -1,9 +1,3 @@
-![vk-unicloud-admin](https://vkceyugu.cdn.bspapp.com/VKCEYUGU-cf0c5e69-620c-4f3c-84ab-f4619262939f/ad18e7d6-ae0e-4424-bf3d-6e3dad1036a1.png)
-
-> **插件名称：** `vk-unicloud-admin`
->
-> **作者：** VK
-
 ---
 
 ## TM Workbench 初版介绍
