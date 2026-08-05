@@ -72,6 +72,12 @@
 		color: #18a058;
 	}
 
+	.tm-status-tag--refunded ::v-deep .el-tag {
+		border-color: #f3c08a;
+		background: #fff6ed;
+		color: #c2611a;
+	}
+
 	.tm-status-tag--danger ::v-deep .el-tag {
 		border-color: #f2a7a7;
 		background: #fff1f1;

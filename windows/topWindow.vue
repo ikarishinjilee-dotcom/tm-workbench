@@ -63,6 +63,7 @@
             <el-dropdown v-if="isLoginCom" trigger="hover" @command="handleUserMenuCommand">
               <div class="menu-item user-info-item">
                 <el-avatar :size="28" :src="avatarCom" icon="el-icon-user-solid" class="menu-avatar"></el-avatar>
+                <span v-if="roleLabelCom" :class="['user-role-badge', roleBadgeClassCom]">{{ roleLabelCom }}</span>
                 <span class="text-overflow">{{ nicknameCom }}</span>
                 <i class="el-icon-arrow-down el-icon--right"></i>
               </div>
@@ -213,7 +214,12 @@
             data: { notification_id: message._id || message.id },
           });
         }
-        if (message && message.route) this.vk.navigateTo(message.route);
+        let route = (message && message.route) || '';
+        if (message && message.customer_id && route.indexOf('/pages/custom/records') === 0 && route.indexOf('customer_id=') === -1) {
+          route += `${route.indexOf('?') === -1 ? '?' : '&'}customer_id=${encodeURIComponent(message.customer_id)}`;
+        }
+        if (!route && message && message.customer_id) route = `/pages/custom/records?customer_id=${encodeURIComponent(message.customer_id)}`;
+        if (route) this.vk.navigateTo(route);
       },
       markAllMessagesRead() {
         this.vk.callFunction({
@@ -251,6 +257,45 @@
           });
         }
       },
+      // 获取当前账号身份标签，兼容 role/roles/role_id/roleIds 的不同数据结构。
+      getUserRoleLabel(userInfo = {}) {
+        const roleLabelMap = {
+          admin: '管理员',
+          super_admin: '管理员',
+          administrator: '管理员',
+          consultant: '咨询师',
+          counselor: '咨询师',
+          zixunshi: '咨询师',
+          sales: '咨询师',
+          live_teacher: '直播老师',
+          zhibo: '直播老师',
+          traffic_teacher: '投流老师',
+          touliu: '投流老师',
+        };
+        const roleValue = userInfo.role || userInfo.roles || userInfo.role_id || userInfo.roleIds || [];
+        const roles = Array.isArray(roleValue) ? roleValue : [roleValue];
+        const roleLabels = roles.flatMap((role) => {
+          if (!role) return [];
+          if (typeof role === 'string') return [roleLabelMap[role] || role];
+          return [
+            role.role_name,
+            role.name,
+            roleLabelMap[role.role_id],
+            roleLabelMap[role.value],
+            role.role_id,
+            role.value,
+          ].filter(Boolean);
+        }).filter(Boolean);
+        const normalizedLabels = roleLabels.map((label) => {
+          const text = String(label);
+          if (text.includes('管理员')) return '管理员';
+          if (text.includes('直播')) return '直播老师';
+          if (text.includes('投流')) return '投流老师';
+          if (text.includes('咨询')) return '咨询师';
+          return text;
+        });
+        return Array.from(new Set(normalizedLabels))[0] || '';
+      },
     },
     // 监听属性
     watch: {
@@ -284,6 +329,19 @@
       nicknameCom() {
         const userInfo = this.vk.getVuex('$user.userInfo') || {};
         return userInfo.nickname || userInfo.username || '';
+      },
+      roleLabelCom() {
+        const userInfo = this.vk.getVuex('$user.userInfo') || {};
+        return this.getUserRoleLabel(userInfo);
+      },
+      roleBadgeClassCom() {
+        const classMap = {
+          管理员: 'user-role-badge--admin',
+          咨询师: 'user-role-badge--consultant',
+          直播老师: 'user-role-badge--live',
+          投流老师: 'user-role-badge--traffic',
+        };
+        return classMap[this.roleLabelCom] || 'user-role-badge--default';
       },
       isLoginCom() {
         const userInfo = this.vk.getVuex('$user.userInfo');
@@ -433,6 +491,49 @@
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+
+      .user-role-badge {
+        flex-shrink: 0;
+        margin-right: 6px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        border: 1px solid #b7d4ff;
+        background: #eef6ff;
+        color: #2f7ce8;
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 500;
+      }
+
+      .user-role-badge--admin {
+        border-color: #f2c36b;
+        background: #fff7e6;
+        color: #ad6800;
+      }
+
+      .user-role-badge--consultant {
+        border-color: #91caff;
+        background: #e6f4ff;
+        color: #0958d9;
+      }
+
+      .user-role-badge--live {
+        border-color: #b7eb8f;
+        background: #f6ffed;
+        color: #389e0d;
+      }
+
+      .user-role-badge--traffic {
+        border-color: #d3adf7;
+        background: #f9f0ff;
+        color: #722ed1;
+      }
+
+      .user-role-badge--default {
+        border-color: #d9d9d9;
+        background: #f5f5f5;
+        color: #595959;
       }
 
       .debug {

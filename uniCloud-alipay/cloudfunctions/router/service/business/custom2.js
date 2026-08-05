@@ -1,6 +1,7 @@
 'use strict';
 
 // 角色信息可能来自数组、字符串或角色对象，统一识别超级管理员。
+const adminRoleKeys = ['admin', 'super_admin', 'administrator'];
 const isSuperAdmin = (userInfo = {}) => {
   let roleValue = userInfo.role || userInfo.roles || userInfo.role_id || userInfo.roleIds || [];
   if (typeof roleValue === 'string') {
@@ -11,7 +12,11 @@ const isSuperAdmin = (userInfo = {}) => {
     }
   }
   const roles = Array.isArray(roleValue) ? roleValue : [roleValue];
-  return roles.some((role) => role === 'admin' || role && role.role_id === 'admin' || role && role.value === 'admin');
+  return roles.some((role) => {
+    if (typeof role === 'string') return adminRoleKeys.includes(role);
+    if (!role) return false;
+    return [role.role_id, role.value, role.role_name, role.name].filter(Boolean).some((value) => adminRoleKeys.includes(value));
+  });
 };
 
 const normalizeRoleList = (userInfo = {}) => {
@@ -68,6 +73,14 @@ const getCurrentUserInfo = async (context, uid, userInfo = {}) => {
   };
 };
 
+const getOperatorName = (userInfo = {}, admin = false) => (
+  userInfo.nickname
+  || userInfo.username
+  || userInfo.realname
+  || userInfo.name
+  || (admin ? '管理员' : '当前用户')
+);
+
 // 同时识别新旧格式，保证历史转移记录也受保护。
 const isTransferRecord = (record = {}) => record.record_type === 'transfer' || /^客户已从“[^”]+”转移至“[^”]+”$/.test(String(record.content || ''));
 const isSystemRecord = (record = {}) => record.record_type === 'system';
@@ -79,13 +92,16 @@ const customerStatusOptions = [
   { value: 'communicating_positive', label: '沟通中(能转化)' },
   { value: 'communicating_difficult', label: '沟通中(难转化)' },
   { value: 'invited', label: '已邀约' },
-  { value: 'converted', label: '已转化' },
+  { value: 'converted', label: '已签单' },
+  { value: 'refunded', label: '已退单' },
   { value: 'not_interested', label: '不考虑' },
 ];
+const postConvertedStatusValues = ['converted', 'refunded'];
 const customerStatusLabelMap = customerStatusOptions.reduce((map, item) => {
   map[item.label] = item.value;
   return map;
 }, {});
+customerStatusLabelMap['已转化'] = 'converted';
 const normalizeCustomerStatus = (value) => customerStatusLabelMap[value] || value || 'initial_contact';
 const getCustomerStatusAliases = (value) => {
   const normalized = normalizeCustomerStatus(value);
@@ -96,6 +112,50 @@ const normalizeFollowupRecords = (records) => (Array.isArray(records) ? records 
   ...record,
   status: normalizeCustomerStatus(record.status),
 }));
+const parseTimeInput = (value) => {
+  if (!value) return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? 0 : value.getTime();
+  const numericValue = Number(value);
+  if (Number.isFinite(numericValue) && numericValue > 0) return numericValue;
+  const stringValue = String(value).trim();
+  if (!stringValue) return 0;
+  // 优先解析 ISO 字符串，兼容前端日期组件序列化后的时间格式。
+  const parsedTime = new Date(stringValue).getTime();
+  if (!Number.isNaN(parsedTime)) return parsedTime;
+  // 再兼容历史数据中的 yyyy-MM-dd HH:mm:ss 格式。
+  const legacyParsedTime = new Date(stringValue.replace(/-/g, '/')).getTime();
+  return Number.isNaN(legacyParsedTime) ? 0 : legacyParsedTime;
+};
+const getFollowupRecordTime = (record = {}) => parseTimeInput(record.contact_time || record.create_time || record.update_time || record._add_time);
+const sortFollowupRecords = (records = []) => normalizeFollowupRecords(records).sort((a, b) => {
+  const timeDiff = getFollowupRecordTime(b) - getFollowupRecordTime(a);
+  if (timeDiff) return timeDiff;
+  return parseTimeInput(b.create_time) - parseTimeInput(a.create_time);
+});
+const getLatestManualFollowupRecord = (records = []) => sortFollowupRecords(records)
+  .find((record) => !isSystemRecord(record) && !isTransferRecord(record));
+const getStarredUserIds = (customer = {}) => {
+  const ids = Array.isArray(customer.starred_user_ids) ? customer.starred_user_ids.filter(Boolean) : [];
+  if (customer.starred_by && !ids.includes(customer.starred_by)) ids.push(customer.starred_by);
+  return ids;
+};
+const getStarredUsers = (customer = {}) => {
+  const users = Array.isArray(customer.starred_users) ? customer.starred_users.filter((item) => item && item.uid) : [];
+  if (customer.starred_by && !users.some((item) => item.uid === customer.starred_by)) {
+    users.push({
+      uid: customer.starred_by,
+      name: customer.starred_by_name || '',
+      starred_at: customer.starred_at || 0,
+    });
+  }
+  return users;
+};
+const isCustomerStarredBy = (customer = {}, uid) => Boolean(uid && getStarredUserIds(customer).includes(uid));
+const getCustomerStarredAtBy = (customer = {}, uid) => {
+  const user = getStarredUsers(customer).find((item) => item.uid === uid);
+  return user && user.starred_at || 0;
+};
 const sourceAliasMap = {
   live_teacher_zhou: ['live_teacher_zhou', '直播（周老师）'],
   wechat_channels_promotion: ['wechat_channels_promotion', '视频号线索', 'wechat_channels'],
@@ -110,6 +170,12 @@ const leadProviderSourceRoleMap = {
 const fuzzyLeadProviderSourceRoleMap = [
   { keywords: ['直播'], sources: ['live_teacher_zhou'] },
   { keywords: ['投流'], sources: ['wechat_channels_promotion', 'douyin_promotion'] },
+];
+const leadProviderIdentityKeywordMap = [
+  { keywords: ['直播'], sources: ['live_teacher_zhou'] },
+  { keywords: ['投流'], sources: ['wechat_channels_promotion', 'douyin_promotion'] },
+  { keywords: ['视频号'], sources: ['wechat_channels_promotion'] },
+  { keywords: ['抖音'], sources: ['douyin_promotion'] },
 ];
 const getSourceAliases = (value) => Array.from(new Set(sourceAliasMap[value] || [value])).filter(Boolean);
 const getLeadProviderVisibleSources = (userInfo = {}) => {
@@ -126,9 +192,21 @@ const getLeadProviderVisibleSources = (userInfo = {}) => {
       }
     });
   });
+  const identityValues = [
+    userInfo.username,
+    userInfo.nickname,
+    userInfo.realname,
+    userInfo.mobile,
+  ].filter(Boolean);
+  leadProviderIdentityKeywordMap.forEach((config) => {
+    if (identityValues.some((value) => config.keywords.some((keyword) => String(value).includes(keyword)))) {
+      sources.push(...config.sources);
+    }
+  });
   return Array.from(new Set(sources.flatMap((source) => getSourceAliases(source))));
 };
 const isLeadProviderUser = (userInfo = {}) => !isSuperAdmin(userInfo) && getLeadProviderVisibleSources(userInfo).length > 0;
+const isConsultantCandidate = (userInfo = {}) => !isSuperAdmin(userInfo) && !isLeadProviderUser(userInfo);
 const applyCustomerAccessWhere = ({ whereJson = {}, userInfo = {}, uid, admin, _ }) => {
   if (admin) return whereJson;
   const visibleSources = getLeadProviderVisibleSources(userInfo);
@@ -165,8 +243,64 @@ const notifyCustomerDistribution = async ({ db, recipientId, customerId, custome
     actor_name: actorName || '线索老师',
     read: false,
     create_time: new Date(),
-    route: '/pages/custom/records',
+    route: `/pages/custom/records?customer_id=${encodeURIComponent(customerId)}`,
   });
+};
+
+const getCustomerStatusLabel = (value) => {
+  const normalized = normalizeCustomerStatus(value);
+  const option = customerStatusOptions.find((item) => item.value === normalized);
+  return option ? option.label : normalized;
+};
+
+const notifyLeadProviderFollowupFeedback = async ({ db, customer = {}, record = {}, actorId, actorName, isUpdate = false }) => {
+  if (!db || !customer._id) return;
+  const sourceAliases = getSourceAliases(customer.source || '');
+  let recipientIds = [customer.lead_provider_id].filter(Boolean);
+  if (!recipientIds.length && sourceAliases.length) {
+    const providerRes = await db.collection('uni-id-users').field({
+      _id: true,
+      username: true,
+      nickname: true,
+      status: true,
+      allow_login_background: true,
+      role: true,
+      roles: true,
+      role_id: true,
+      roleIds: true,
+    }).limit(500).get();
+    recipientIds = (providerRes.data || [])
+      .filter((item) => item.status !== 1 && item.allow_login_background !== false && isLeadProviderUser(item))
+      .filter((item) => getLeadProviderVisibleSources(item).some((source) => sourceAliases.includes(source)))
+      .map((item) => item._id)
+      .filter(Boolean);
+  }
+  recipientIds = Array.from(new Set(recipientIds)).filter((recipientId) => recipientId && recipientId !== actorId);
+  if (!recipientIds.length) return;
+  const customerName = customer.parent_name || customer.name || '未命名客户';
+  const normalizedStatus = normalizeCustomerStatus(record.status);
+  const statusLabel = getCustomerStatusLabel(normalizedStatus);
+  const actionText = isUpdate ? '更新了进度' : '新增了进度';
+  const contentText = String(record.content || '').trim();
+  const isConverted = normalizedStatus === 'converted';
+  await Promise.all(recipientIds.map((recipientId) => db.collection('tm-notifications').add({
+    recipient_id: recipientId,
+    type: 'customer_followup_feedback',
+    title: isConverted ? '客户签单反馈' : '客户进度反馈',
+    content: isConverted
+      ? `${actorName || '咨询师'}已将客户“${customerName}”推进为已签单${contentText ? `，内容：${contentText}` : ''}`
+      : `${actorName || '咨询师'}已为客户“${customerName}”${actionText}，状态：${statusLabel}${contentText ? `，内容：${contentText}` : ''}`,
+    customer_id: customer._id,
+    customer_name: customerName,
+    actor_id: actorId || '',
+    actor_name: actorName || '咨询师',
+    feedback_status: normalizedStatus,
+    feedback_status_label: statusLabel,
+    feedback_content: contentText,
+    read: false,
+    create_time: new Date(),
+    route: `/pages/custom/records?customer_id=${encodeURIComponent(customer._id)}`,
+  })));
 };
 
 const customerMaterialRootName = '客户信息资料';
@@ -288,9 +422,14 @@ const cloudObject = {
       columns: Array.isArray(data.columns) ? data.columns.map((column) => ({ ...column })) : data.columns,
     };
     delete queryData.formData._deleted_view;
+    const selectedCustomerId = queryData.formData._id;
+    delete queryData.formData._id;
+    if (selectedCustomerId) whereJson._id = selectedCustomerId;
     const selectedConsultantId = queryData.formData.consultant_id;
     delete queryData.formData.consultant_id;
     if ((admin || visibleSources.length) && selectedConsultantId) whereJson.consultant_id = selectedConsultantId;
+    const selectedStarred = queryData.formData.is_starred;
+    delete queryData.formData.is_starred;
     // 纯日期筛选的结束日期按当天结束时间计算，避免漏掉结束日期当天的客户。
     if (queryData.formData._add_time_start) {
       const start = new Date(queryData.formData._add_time_start);
@@ -334,10 +473,267 @@ const cloudObject = {
     if (result && Array.isArray(result.rows)) {
       result.rows = result.rows.map((row) => ({
         ...row,
+        is_starred: isCustomerStarredBy(row, uid),
+        starred_at: getCustomerStarredAtBy(row, uid),
         consultant_name: row.consultant_name || row.consultantUserInfo && (row.consultantUserInfo.nickname || row.consultantUserInfo.username) || '',
       }));
+      if (selectedStarred === true || selectedStarred === 'true' || selectedStarred === 1 || selectedStarred === '1') {
+        result.rows = result.rows.filter((row) => row.is_starred);
+      } else if (selectedStarred === false || selectedStarred === 'false' || selectedStarred === 0 || selectedStarred === '0') {
+        result.rows = result.rows.filter((row) => !row.is_starred);
+      }
     }
     return result;
+  },
+
+  // 咨询师首页概览：只返回当前用户可见的未删除客户，避免前端自行拼装权限范围。
+  getDashboard: async function () {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const { _ } = this.getUtil();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    const admin = isSuperAdmin(currentUserInfo);
+    const whereJson = { is_deleted: _.neq(true) };
+    applyCustomerAccessWhere({ whereJson, userInfo: currentUserInfo, uid, admin, _ });
+
+    const dashboardDb = uniCloud.database();
+    const result = await dashboardDb.collection('tm-clients')
+      .where(whereJson)
+      .field({ _id: true, name: true, parent_name: true, status: true, source: true, consultant_id: true, consultant_name: true, _add_time: true, last_edit_time: true, progress: true, followup_records: true, contract_amount: true, is_starred: true, starred_at: true, starred_by: true, starred_by_name: true, starred_user_ids: true, starred_users: true })
+      .orderBy('last_edit_time', 'desc')
+      .orderBy('_add_time', 'desc')
+      .limit(1000)
+      .get();
+    const consultantCandidatesRes = await dashboardDb.collection('uni-id-users').field({
+      _id: true,
+      username: true,
+      nickname: true,
+      status: true,
+      allow_login_background: true,
+      role: true,
+      roles: true,
+      role_id: true,
+      roleIds: true,
+    }).limit(500).get();
+    const consultantCandidates = (consultantCandidatesRes.data || [])
+      .filter((item) => item.status !== 1 && item.allow_login_background !== false && isConsultantCandidate(item))
+      .map((item) => ({
+        consultant_id: item._id,
+        consultant_name: item.nickname || item.username || '未命名咨询师',
+      }))
+      .sort((a, b) => String(a.consultant_name).localeCompare(String(b.consultant_name), 'zh-Hans-CN'));
+    const rows = result.data || [];
+    const now = Date.now();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const todayStart = today.getTime();
+    const todayEnd = todayStart + 24 * 60 * 60 * 1000;
+    const month = new Date(now);
+    month.setDate(1);
+    month.setHours(0, 0, 0, 0);
+    const monthStart = month.getTime();
+    const getManualRecords = (row) => (Array.isArray(row.followup_records) ? row.followup_records : [])
+      .filter((record) => !isSystemRecord(record) && !isTransferRecord(record));
+    const parseTimeValue = (value) => {
+      if (!value) return 0;
+      if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+      const numericValue = Number(value);
+      if (Number.isFinite(numericValue) && numericValue > 0) return numericValue;
+      const parsedTime = new Date(String(value).replace(/-/g, '/')).getTime();
+      return Number.isNaN(parsedTime) ? 0 : parsedTime;
+    };
+    const getRecordTime = (record = {}) => {
+      const timeFields = [record.contact_time, record.create_time, record.update_time, record._add_time];
+      for (const value of timeFields) {
+        const parsedTime = parseTimeValue(value);
+        if (parsedTime) return parsedTime;
+      }
+      return 0;
+    };
+    const getLatestFollowupTime = (row) => {
+      return getManualRecords(row)
+        .reduce((latest, record) => Math.max(latest, getRecordTime(record)), 0);
+    };
+    const hasProgress = (row) => {
+      if (getManualRecords(row).length) return true;
+      const normalizedStatus = statusOf(row);
+      return Boolean(normalizedStatus && normalizedStatus !== 'initial_contact' || String(row.progress || '').trim());
+    };
+    const hasStatusAdvanced = (row) => statusOf(row) !== 'initial_contact';
+    const parseAmount = (value) => {
+      const amount = Number(String(value || '').replace(/[^\d.-]/g, ''));
+      return Number.isFinite(amount) ? amount : 0;
+    };
+    const isToday = (value) => {
+      const time = parseTimeValue(value);
+      return time >= todayStart && time < todayEnd;
+    };
+    const statusOf = (row) => normalizeCustomerStatus(row.status);
+    const sortedByPriority = [...rows].sort((a, b) => {
+      const priority = { invited: 5, communicating_positive: 4, initial_contact: 3, communicating_difficult: 2, converted: 1, not_interested: 0 };
+      return (priority[statusOf(b)] || 0) - (priority[statusOf(a)] || 0) || (b.last_edit_time || b._add_time || 0) - (a.last_edit_time || a._add_time || 0);
+    });
+    const getAssignedConsultantName = (row = {}) => row.consultant_name || row.consultantUserInfo && (row.consultantUserInfo.nickname || row.consultantUserInfo.username) || '';
+    const getCustomerSummary = (row) => {
+      const latest = getLatestFollowupTime(row);
+      return {
+        _id: row._id,
+        name: row.parent_name || row.name || '未命名客户',
+        status: statusOf(row),
+        source: row.source || '',
+        consultant_id: row.consultant_id || '',
+        consultant_name: getAssignedConsultantName(row),
+        latest_followup_at: latest,
+        has_progress: hasProgress(row),
+        update_time: row.last_edit_time || row._add_time || 0,
+        is_starred: isCustomerStarredBy(row, uid),
+        contract_amount: parseAmount(row.contract_amount),
+      };
+    };
+    const starredRows = rows
+      .filter((row) => isCustomerStarredBy(row, uid))
+      .sort((a, b) => (getCustomerStarredAtBy(b, uid) || b.last_edit_time || b._add_time || 0) - (getCustomerStarredAtBy(a, uid) || a.last_edit_time || a._add_time || 0));
+    const actionRows = rows
+      .filter((row) => getManualRecords(row).length === 0 || statusOf(row) === 'initial_contact')
+      .sort((a, b) => (b._add_time || 0) - (a._add_time || 0));
+    const staleRows = rows.filter((row) => {
+      const latest = getLatestFollowupTime(row);
+      return !latest || now - latest >= 7 * 24 * 60 * 60 * 1000;
+    }).sort((a, b) => getLatestFollowupTime(a) - getLatestFollowupTime(b));
+    const todayRows = rows.filter((row) => isToday(row._add_time));
+    // 直播/投流老师新增客户时必须同步选择咨询师，因此首页不再表达“待分配”状态。
+    // 旧数据如果缺少 consultant_id，也按“已随新增同步”处理，避免页面误导为存在待分配环节。
+    const todayAssignedRows = todayRows;
+    const todayConvertedRows = todayRows.filter((row) => statusOf(row) === 'converted');
+    const todayInvalidRows = todayRows.filter((row) => ['not_interested', 'refunded'].includes(statusOf(row)));
+    const todayEffectiveRows = todayRows.filter((row) => !['not_interested', 'refunded'].includes(statusOf(row)));
+    const consultantStatMap = {};
+    todayAssignedRows.forEach((row) => {
+      const consultantName = getAssignedConsultantName(row);
+      const key = row.consultant_id || consultantName || 'synced';
+      if (!consultantStatMap[key]) {
+        consultantStatMap[key] = {
+          consultant_id: row.consultant_id || '',
+          consultant_name: consultantName || '已随新增同步',
+          received: 0,
+          followed: 0,
+          converted: 0,
+          followup_rate: 0,
+        };
+      }
+      consultantStatMap[key].received += 1;
+      if (hasStatusAdvanced(row)) consultantStatMap[key].followed += 1;
+      if (statusOf(row) === 'converted') consultantStatMap[key].converted += 1;
+    });
+    Object.values(consultantStatMap).forEach((item) => {
+      item.followup_rate = item.received ? Math.round((item.followed / item.received) * 100) : 0;
+    });
+    const sourceStats = Object.values(todayRows.reduce((map, row) => {
+      const key = row.source || 'other';
+      if (!map[key]) map[key] = { source: key, count: 0, converted: 0, amount: 0 };
+      map[key].count += 1;
+      if (statusOf(row) === 'converted') {
+        map[key].converted += 1;
+        map[key].amount += parseAmount(row.contract_amount);
+      }
+      return map;
+    }, {})).sort((a, b) => b.count - a.count);
+    const liveConvertedRows = rows.filter((row) => statusOf(row) === 'converted');
+    const statusRows = customerStatusOptions.map((option) => ({
+      value: option.value,
+      label: option.label,
+      count: rows.filter((row) => normalizeCustomerStatus(row.status) === option.value).length,
+    }));
+    return {
+      code: 0,
+      summary: {
+        total: rows.length,
+        converted: rows.filter((row) => normalizeCustomerStatus(row.status) === 'converted').length,
+        followed: rows.filter((row) => hasProgress(row)).length,
+        today_new: rows.filter((row) => isToday(row._add_time)).length,
+        today_followup: rows.reduce((count, row) => count + getManualRecords(row).filter((record) => isToday(record.contact_time)).length, 0),
+        month_converted: rows.filter((row) => statusOf(row) === 'converted' && Number(row.last_edit_time || 0) >= monthStart).length,
+        contract_amount: rows.filter((row) => statusOf(row) === 'converted').reduce((total, row) => total + parseAmount(row.contract_amount), 0),
+        conversion_rate: rows.length ? Math.round((rows.filter((row) => statusOf(row) === 'converted').length / rows.length) * 100) : 0,
+      },
+      status_distribution: statusRows,
+      recent_customers: rows.slice(0, 5).map((row) => ({
+        _id: row._id,
+        name: row.parent_name || row.name || '未命名客户',
+        status: normalizeCustomerStatus(row.status),
+        source: row.source || '',
+        update_time: row.last_edit_time || row._add_time || 0,
+      })),
+      today_tasks: actionRows.slice(0, 6).map((row) => ({
+        ...getCustomerSummary(row),
+        task_type: hasProgress(row) ? 'status' : 'first_followup',
+        task_label: getManualRecords(row).length ? '确认客户进度' : '建立首次跟进',
+      })),
+      focus_customers: starredRows.slice(0, 5).map(getCustomerSummary),
+      reminders: {
+        need_followup: actionRows.length,
+        stale_7d: staleRows.length,
+        stale_15d: staleRows.filter((row) => {
+          const latest = getLatestFollowupTime(row);
+          return !latest || now - latest >= 15 * 24 * 60 * 60 * 1000;
+        }).length,
+      },
+      reminder_customers: {
+        need_followup: actionRows.map(getCustomerSummary),
+        stale_7d: staleRows.map(getCustomerSummary),
+        stale_15d: staleRows.filter((row) => {
+          const latest = getLatestFollowupTime(row);
+          return !latest || now - latest >= 15 * 24 * 60 * 60 * 1000;
+        }).map(getCustomerSummary),
+      },
+      performance_customers: {
+        month_converted: rows.filter((row) => statusOf(row) === 'converted' && Number(row.last_edit_time || 0) >= monthStart).map(getCustomerSummary),
+        converted: rows.filter((row) => statusOf(row) === 'converted').map(getCustomerSummary),
+      },
+      live_dashboard: {
+        overview: {
+          today_new: todayRows.length,
+          today_assigned: todayAssignedRows.length,
+          effective_consult: todayEffectiveRows.length,
+          invalid_customers: todayInvalidRows.length,
+          duplicate_customers: 0,
+          converted_feedback: todayConvertedRows.length,
+        },
+        flow: [
+          { key: 'assigned', label: '新增并分发咨询师', value: todayAssignedRows.length },
+          { key: 'advanced', label: '状态已推进', value: todayRows.filter((row) => hasStatusAdvanced(row)).length },
+          { key: 'converted', label: '已成交', value: todayConvertedRows.length },
+        ],
+        consultant_stats: consultantCandidates.map((consultant) => {
+          const stat = consultantStatMap[consultant.consultant_id] || consultantStatMap[consultant.consultant_name] || {};
+          const received = stat.received || 0;
+          const followed = stat.followed || 0;
+          return {
+            consultant_id: consultant.consultant_id,
+            consultant_name: consultant.consultant_name,
+            received,
+            followed,
+            converted: stat.converted || 0,
+            followup_rate: received ? Math.round((followed / received) * 100) : 0,
+          };
+        }),
+        source_stats: sourceStats.slice(0, 6).map((item) => ({
+          ...item,
+          conversion_rate: item.count ? Math.round((item.converted / item.count) * 1000) / 10 : 0,
+        })),
+        quality_stats: [
+          { key: 'high', label: '高意向', value: todayRows.filter((row) => ['converted', 'invited', 'communicating_positive'].includes(statusOf(row))).length },
+          { key: 'normal', label: '普通咨询', value: todayRows.filter((row) => ['initial_contact', 'communicating_difficult'].includes(statusOf(row))).length },
+          { key: 'low', label: '低意向', value: todayRows.filter((row) => statusOf(row) === 'not_interested').length },
+          { key: 'invalid', label: '无效', value: todayRows.filter((row) => statusOf(row) === 'refunded').length },
+        ],
+        recent_customers: todayRows.slice(0, 8).map(getCustomerSummary),
+        value_summary: {
+          month_new: rows.filter((row) => Number(row._add_time || 0) >= monthStart).length,
+          converted: liveConvertedRows.length,
+          contract_amount: liveConvertedRows.reduce((total, row) => total + parseAmount(row.contract_amount), 0),
+        },
+      },
+    };
   },
 
   // 返回可作为客户归属人的咨询师名单，仅提供转移所需的公开字段。
@@ -348,8 +744,12 @@ const cloudObject = {
       nickname: true,
       status: true,
       allow_login_background: true,
+      role: true,
+      roles: true,
+      role_id: true,
+      roleIds: true,
     }).limit(500).get();
-    const rows = (result.data || []).filter((item) => item.status !== 1 && item.allow_login_background !== false);
+    const rows = (result.data || []).filter((item) => item.status !== 1 && item.allow_login_background !== false && isConsultantCandidate(item));
     return { code: 0, rows };
   },
 
@@ -406,6 +806,76 @@ const cloudObject = {
     return { code: 0, linked, msg: '客户资料已同步到素材管理' };
   },
 
+  importCustomers: async function (data = {}) {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    const admin = isSuperAdmin(currentUserInfo);
+    const leadProviderUser = isLeadProviderUser(currentUserInfo);
+    const inputRows = Array.isArray(data.rows) ? data.rows : [];
+    const rows = inputRows.slice(0, 500);
+    if (!rows.length) return { code: -1, msg: '没有可导入的客户数据' };
+    if (inputRows.length > 500) return { code: -1, msg: '单次最多导入500条客户数据' };
+
+    const db = uniCloud.database();
+    const consultantMap = {};
+    if (admin || leadProviderUser) {
+      const consultantRes = await db.collection('uni-id-users').field({
+        _id: true,
+        username: true,
+        nickname: true,
+        realname: true,
+        status: true,
+        allow_login_background: true,
+        role: true,
+        roles: true,
+        role_id: true,
+        roleIds: true,
+      }).limit(500).get();
+      (consultantRes.data || []).filter(isConsultantCandidate).forEach((item) => {
+        [item._id, item.username, item.nickname, item.realname].filter(Boolean).forEach((value) => {
+          consultantMap[String(value).trim()] = item._id;
+        });
+      });
+    }
+
+    const failures = [];
+    let successCount = 0;
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index] || {};
+      const rowData = {
+        ...row,
+        _add_time: row._add_time || Date.now(),
+        status: normalizeCustomerStatus(row.status),
+        source: normalizeSourceValue(row.source || 'other'),
+        attachments: [],
+      };
+      if (!rowData.consultant_id && rowData.consultant_name && consultantMap[String(rowData.consultant_name).trim()]) {
+        rowData.consultant_id = consultantMap[String(rowData.consultant_name).trim()];
+      }
+      try {
+        const result = await this.save(rowData);
+        if (result && result.code !== 0) {
+          failures.push({ row: index + 2, name: rowData.parent_name || '', msg: result.msg || '导入失败' });
+        } else {
+          successCount += 1;
+        }
+      } catch (error) {
+        failures.push({ row: index + 2, name: rowData.parent_name || '', msg: error && error.message || '导入失败' });
+      }
+    }
+
+    return {
+      code: 0,
+      data: {
+        total: rows.length,
+        success_count: successCount,
+        fail_count: failures.length,
+        failures: failures.slice(0, 20),
+      },
+      msg: failures.length ? '部分客户导入失败' : '客户导入完成',
+    };
+  },
+
   save: async function (data = {}) {
     const { uid, userInfo = {} } = this.getClientInfo();
     const { vk, _ } = this.getUtil();
@@ -460,22 +930,28 @@ const cloudObject = {
     };
     const lastEditTime = Date.now();
     if (normalizedAttachments.length > 30) return { code: -1, msg: '每个客户最多保存30份资料' };
-    if (leadProviderUser && (!consultant_id || !String(consultant_id).trim())) return { code: -1, msg: '请选择咨询师' };
+    const shouldAssignConsultant = leadProviderUser || (admin && !_id);
+    if (shouldAssignConsultant && (!consultant_id || !String(consultant_id).trim())) return { code: -1, msg: '请选择咨询师' };
     if (leadProviderUser && visibleSources.length && !getSourceAliases(source).some((item) => visibleSources.includes(item))) {
       return { code: -1, msg: '当前角色不能分发该线索来源的客户' };
     }
     let consultantInfo = null;
-    if (leadProviderUser && consultant_id) {
+    if (shouldAssignConsultant && consultant_id) {
       const consultantRes = await uniCloud.database().collection('uni-id-users').doc(consultant_id).field({
         _id: true,
         username: true,
         nickname: true,
         status: true,
         allow_login_background: true,
+        role: true,
+        roles: true,
+        role_id: true,
+        roleIds: true,
       }).get();
       consultantInfo = consultantRes.data && consultantRes.data[0];
       if (!consultantInfo) return { code: -1, msg: '咨询师不存在' };
       if (consultantInfo.status === 1 || consultantInfo.allow_login_background === false) return { code: -1, msg: '所选咨询师当前不可用' };
+      if (!isConsultantCandidate(consultantInfo)) return { code: -1, msg: '所选账号不是咨询师，不能分配客户' };
     }
     let existingCustomer = null;
     // 客户创建后不允许通过客户资料表单直接改状态，状态只能由进度记录驱动。
@@ -540,12 +1016,14 @@ const cloudObject = {
         dataJson.consultant_info_modified_by = existingCustomer.consultant_info_modified_by || '';
         dataJson.consultant_info_modified_name = existingCustomer.consultant_info_modified_name || '';
       }
+      dataJson.lead_provider_id = existingCustomer && existingCustomer.lead_provider_id || uid;
+      dataJson.lead_provider_name = existingCustomer && existingCustomer.lead_provider_name || currentUserInfo.nickname || currentUserInfo.username || '';
       if (existingCustomer && existingCustomer.consultant_id && existingCustomer.consultant_info_modified_at) {
         dataJson.consultant_id = existingCustomer.consultant_id;
         dataJson.consultant_name = existingCustomer.consultant_name || '';
       }
     }
-    if (leadProviderUser && consultantInfo) {
+    if (shouldAssignConsultant && consultantInfo) {
       dataJson.consultant_id = consultantInfo._id;
       dataJson.consultant_name = consultantInfo.nickname || consultantInfo.username || consultant_name || '';
     }
@@ -583,36 +1061,99 @@ const cloudObject = {
           isRedispatch: true,
         });
       }
-      return { code: 0, num: res, msg: '客户信息已更新' };
+      return {
+        code: 0,
+        num: res,
+        msg: dataJson.status === 'converted' ? '客户信息已更新，客户状态已改为“已签单”，代表已签此单' : '客户信息已更新',
+      };
     }
     if (leadProviderUser) {
       dataJson.consultant_id = consultantInfo && consultantInfo._id || consultant_id;
       dataJson.consultant_name = consultantInfo && (consultantInfo.nickname || consultantInfo.username) || consultant_name || '';
+      dataJson.lead_provider_id = uid;
+      dataJson.lead_provider_name = currentUserInfo.nickname || currentUserInfo.username || '';
       dataJson.followup_records = [];
       dataJson.attachments = [];
       dataJson.signing_province = '';
       dataJson.signing_city = '';
       dataJson.contract_amount = '';
       dataJson.contract_content = '';
-    } else {
+    } else if (!admin) {
       dataJson.consultant_id = uid;
       dataJson.consultant_name = currentUserInfo.nickname || currentUserInfo.username || '';
     }
     dataJson.is_deleted = false;
     const id = await vk.baseDao.add({ dbName: 'tm-clients', dataJson });
     await this.syncMaterials({ customer_id: id, attachments: normalizedAttachments });
-    if (leadProviderUser && consultantInfo && consultantInfo._id) {
+    if (shouldAssignConsultant && consultantInfo && consultantInfo._id) {
       await notifyCustomerDistribution({
         db,
         recipientId: consultantInfo._id,
         customerId: id,
         customerName: parent_name || '未命名客户',
         actorId: uid,
-        actorName: currentUserInfo.nickname || currentUserInfo.username || '线索老师',
+        actorName: currentUserInfo.nickname || currentUserInfo.username || (admin ? '管理员' : '线索老师'),
         isRedispatch: false,
       });
     }
-    return { code: 0, id, msg: '客户信息已新增' };
+    return {
+      code: 0,
+      id,
+      msg: dataJson.status === 'converted' ? '客户信息已新增，客户状态为“已签单”，代表已签此单' : '客户信息已新增',
+    };
+  },
+
+  // 标记/取消重点客户：管理员可操作任意客户；咨询师只能操作自己名下客户；直播/投流老师只能操作自己可见来源的客户。
+  toggleStar: async function (data = {}) {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const { _ } = this.getUtil();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    const admin = isSuperAdmin(currentUserInfo);
+    const { customer_id } = data;
+    const isStarred = data.is_starred === true || data.is_starred === 'true' || data.is_starred === 1;
+    if (!customer_id) return { code: -1, msg: '请选择客户' };
+
+    const db = uniCloud.database();
+    const customerWhere = { _id: customer_id };
+    applyCustomerAccessWhere({ whereJson: customerWhere, userInfo: currentUserInfo, uid, admin, _ });
+    const customerRes = await db.collection('tm-clients').where(customerWhere).limit(1).get();
+    const customer = customerRes.data && customerRes.data[0];
+    if (!customer) return { code: -1, msg: '客户不存在或无权操作' };
+    if (customer.is_deleted) return { code: -1, msg: '已删除客户不能标记重点' };
+
+    let starredUserIds = getStarredUserIds(customer);
+    let starredUsers = getStarredUsers(customer);
+    const operatorName = currentUserInfo.nickname || currentUserInfo.username || '';
+    const operationTime = Date.now();
+    if (isStarred) {
+      if (!starredUserIds.includes(uid)) starredUserIds.push(uid);
+      starredUsers = starredUsers.filter((item) => item.uid !== uid);
+      starredUsers.push({
+        uid,
+        name: operatorName,
+        starred_at: operationTime,
+      });
+    } else {
+      starredUserIds = starredUserIds.filter((item) => item !== uid);
+      starredUsers = starredUsers.filter((item) => item.uid !== uid);
+    }
+    const latestStarredUser = [...starredUsers].sort((a, b) => (b.starred_at || 0) - (a.starred_at || 0))[0] || null;
+    const updateData = {
+      is_starred: starredUserIds.length > 0,
+      starred_user_ids: starredUserIds,
+      starred_users: starredUsers,
+      starred_at: latestStarredUser ? latestStarredUser.starred_at || 0 : 0,
+      starred_by: latestStarredUser ? latestStarredUser.uid || '' : '',
+      starred_by_name: latestStarredUser ? latestStarredUser.name || '' : '',
+      last_edit_time: operationTime,
+    };
+    await db.collection('tm-clients').doc(customer_id).update(updateData);
+    return {
+      code: 0,
+      is_starred: isStarred,
+      starred_at: getCustomerStarredAtBy(updateData, uid),
+      msg: isStarred ? '已设为重点客户' : '已取消重点客户',
+    };
   },
 
   // 转移客户归属：咨询师只能转移自己名下的客户，管理员可以转移任意客户。
@@ -639,10 +1180,15 @@ const cloudObject = {
       nickname: true,
       status: true,
       allow_login_background: true,
+      role: true,
+      roles: true,
+      role_id: true,
+      roleIds: true,
     }).get();
     const target = targetRes.data && targetRes.data[0];
     if (!target) return { code: -1, msg: '目标咨询师不存在' };
     if (target.status === 1 || target.allow_login_background === false) return { code: -1, msg: '目标咨询师当前不可用' };
+    if (!isConsultantCandidate(target)) return { code: -1, msg: '目标账号不是咨询师，不能转移客户' };
 
     // 旧客户数据可能只有 consultant_id，没有保存 consultant_name，这里回查账号名称。
     let currentName = customer.consultant_name || '';
@@ -694,7 +1240,7 @@ const cloudObject = {
       actor_name: actorName,
       read: false,
       create_time: new Date(),
-      route: '/pages/custom/records',
+      route: `/pages/custom/records?customer_id=${encodeURIComponent(customer_id)}`,
     });
     return { code: 0, consultant_id: target_consultant_id, consultant_name: targetName, record: transferRecord, msg: '客户已转移' };
   },
@@ -707,8 +1253,9 @@ const cloudObject = {
     const { customer_id, contact_time, status, content } = data;
     if (!customer_id) return { code: -1, msg: '缺少客户ID' };
     if (!status) return { code: -1, msg: '进度状态不能为空' };
-    const normalizedContactTime = contact_time ? (typeof contact_time === 'number' ? contact_time : new Date(contact_time).getTime()) : 0;
+    const normalizedContactTime = parseTimeInput(contact_time);
     if (!normalizedContactTime || Number.isNaN(normalizedContactTime)) return { code: -1, msg: '沟通时间不能为空' };
+    if (normalizedContactTime > Date.now()) return { code: -1, msg: '沟通时间不能晚于当前时间' };
 
     const db = uniCloud.database();
     const whereJson = { _id: customer_id };
@@ -717,6 +1264,9 @@ const cloudObject = {
     const customer = customerRes.data && customerRes.data[0];
     if (!customer) return { code: -1, msg: '客户不存在或无权操作' };
     if (customer.is_deleted) return { code: -1, msg: '已删除客户不可添加进度，请先恢复客户信息' };
+    if (!admin && postConvertedStatusValues.includes(normalizeCustomerStatus(customer.status)) && !postConvertedStatusValues.includes(normalizeCustomerStatus(status))) {
+      return { code: -1, msg: '客户已签单，进度状态只能选择“已签单”或“已退单”' };
+    }
 
     const record = {
       _id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -725,15 +1275,36 @@ const cloudObject = {
       content: String(content || '').trim(),
       create_time: Date.now(),
       consultant_id: customer.consultant_id || uid,
+      operator_id: uid,
+      operator_name: getOperatorName(currentUserInfo, admin),
+      last_operator_id: uid,
+      last_operator_name: getOperatorName(currentUserInfo, admin),
+      update_time: Date.now(),
     };
-    const followupRecords = normalizeFollowupRecords(customer.followup_records);
+    const followupRecords = sortFollowupRecords([record, ...(customer.followup_records || [])]);
+    const latestManualRecord = getLatestManualFollowupRecord(followupRecords);
     await db.collection('tm-clients').doc(customer_id).update({
-      followup_records: [record, ...followupRecords],
-      status: record.status,
-      progress: record.content,
+      followup_records: followupRecords,
+      status: latestManualRecord ? normalizeCustomerStatus(latestManualRecord.status) : normalizeCustomerStatus(customer.status),
+      progress: latestManualRecord ? latestManualRecord.content : '',
       last_edit_time: Date.now(),
     });
-    return { code: 0, data: record, msg: '进度已保存' };
+    await notifyLeadProviderFollowupFeedback({
+      db,
+      customer,
+      record,
+      actorId: uid,
+      actorName: getOperatorName(currentUserInfo, admin),
+      isUpdate: false,
+    });
+    return {
+      code: 0,
+      data: record,
+      records: followupRecords,
+      status: latestManualRecord ? normalizeCustomerStatus(latestManualRecord.status) : normalizeCustomerStatus(customer.status),
+      progress: latestManualRecord ? latestManualRecord.content : '',
+      msg: latestManualRecord && latestManualRecord._id === record._id && record.status === 'converted' ? '进度已保存，客户状态已改为“已签单”，代表已签此单' : '进度已保存',
+    };
   },
 
   updateFollowup: async function (data = {}) {
@@ -745,8 +1316,9 @@ const cloudObject = {
     const followup_id = inputFollowupId || _id;
     if (!customer_id || !followup_id) return { code: -1, msg: '缺少进度记录ID' };
     if (!status) return { code: -1, msg: '进度状态不能为空' };
-    const normalizedContactTime = contact_time ? (typeof contact_time === 'number' ? contact_time : new Date(contact_time).getTime()) : 0;
+    const normalizedContactTime = parseTimeInput(contact_time);
     if (!normalizedContactTime || Number.isNaN(normalizedContactTime)) return { code: -1, msg: '沟通时间不能为空' };
+    if (normalizedContactTime > Date.now()) return { code: -1, msg: '沟通时间不能晚于当前时间' };
 
     const db = uniCloud.database();
     const whereJson = { _id: customer_id };
@@ -755,24 +1327,51 @@ const cloudObject = {
     const customer = customerRes.data && customerRes.data[0];
     if (!customer) return { code: -1, msg: '客户不存在或无权操作' };
     if (customer.is_deleted) return { code: -1, msg: '已删除客户不可编辑进度，请先恢复客户信息' };
+    if (!admin && postConvertedStatusValues.includes(normalizeCustomerStatus(customer.status)) && !postConvertedStatusValues.includes(normalizeCustomerStatus(status))) {
+      return { code: -1, msg: '客户已签单，进度状态只能选择“已签单”或“已退单”' };
+    }
     const records = normalizeFollowupRecords(customer.followup_records);
     const index = records.findIndex((item) => item._id === followup_id);
     if (index < 0) return { code: -1, msg: '进度记录不存在' };
     if (isSystemRecord(records[index])) return { code: -1, msg: '系统操作记录不可编辑' };
     if (isTransferRecord(records[index])) return { code: -1, msg: '系统转移记录不可编辑' };
+    if (!admin && postConvertedStatusValues.includes(normalizeCustomerStatus(records[index].status))) {
+      return { code: -1, msg: '已签单或已退单的进度只有管理员可以编辑' };
+    }
     records[index] = {
       ...records[index],
       contact_time: normalizedContactTime,
       status: normalizeCustomerStatus(status),
       content: String(content || '').trim(),
+      last_operator_id: uid,
+      last_operator_name: getOperatorName(currentUserInfo, admin),
+      update_time: Date.now(),
     };
+    const sortedRecords = sortFollowupRecords(records);
+    const latestManualRecord = getLatestManualFollowupRecord(sortedRecords);
     await db.collection('tm-clients').doc(customer_id).update({
-      followup_records: records,
-      status: records[0] ? normalizeCustomerStatus(records[0].status) : normalizeCustomerStatus(customer.status),
-      progress: records[0] ? records[0].content : '',
+      followup_records: sortedRecords,
+      status: latestManualRecord ? normalizeCustomerStatus(latestManualRecord.status) : normalizeCustomerStatus(customer.status),
+      progress: latestManualRecord ? latestManualRecord.content : '',
       last_edit_time: Date.now(),
     });
-    return { code: 0, data: records[index], msg: '进度已更新' };
+    const updatedRecord = sortedRecords.find((item) => item._id === followup_id) || records[index];
+    await notifyLeadProviderFollowupFeedback({
+      db,
+      customer,
+      record: updatedRecord,
+      actorId: uid,
+      actorName: getOperatorName(currentUserInfo, admin),
+      isUpdate: true,
+    });
+    return {
+      code: 0,
+      data: updatedRecord,
+      records: sortedRecords,
+      status: latestManualRecord ? normalizeCustomerStatus(latestManualRecord.status) : normalizeCustomerStatus(customer.status),
+      progress: latestManualRecord ? latestManualRecord.content : '',
+      msg: latestManualRecord && latestManualRecord._id === followup_id && normalizeCustomerStatus(updatedRecord.status) === 'converted' ? '进度已更新，客户状态已改为“已签单”，代表已签此单' : '进度已更新',
+    };
   },
 
   deleteFollowup: async function (data = {}) {
@@ -789,17 +1388,24 @@ const cloudObject = {
     const customer = customerRes.data && customerRes.data[0];
     if (!customer) return { code: -1, msg: '客户不存在或无权操作' };
     if (customer.is_deleted) return { code: -1, msg: '已删除客户不可删除进度，请先恢复客户信息' };
-    const records = normalizeFollowupRecords(customer.followup_records).filter((item) => item._id !== followup_id);
+    const records = sortFollowupRecords(normalizeFollowupRecords(customer.followup_records).filter((item) => item._id !== followup_id));
     const deletedRecord = (customer.followup_records || []).find((item) => item._id === followup_id);
     if (deletedRecord && isSystemRecord(deletedRecord)) return { code: -1, msg: '系统操作记录不可删除' };
     if (deletedRecord && isTransferRecord(deletedRecord)) return { code: -1, msg: '系统转移记录不可删除' };
+    const latestManualRecord = getLatestManualFollowupRecord(records);
     await db.collection('tm-clients').doc(customer_id).update({
       followup_records: records,
-      status: records[0] ? normalizeCustomerStatus(records[0].status) : 'initial_contact',
-      progress: records[0] ? records[0].content : '',
+      status: latestManualRecord ? normalizeCustomerStatus(latestManualRecord.status) : 'initial_contact',
+      progress: latestManualRecord ? latestManualRecord.content : '',
       last_edit_time: Date.now(),
     });
-    return { code: 0, msg: '进度记录已删除' };
+    return {
+      code: 0,
+      records,
+      status: latestManualRecord ? normalizeCustomerStatus(latestManualRecord.status) : 'initial_contact',
+      progress: latestManualRecord ? latestManualRecord.content : '',
+      msg: '进度记录已删除',
+    };
   },
 
   delete: async function (data = {}) {

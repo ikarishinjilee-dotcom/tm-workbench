@@ -4,7 +4,8 @@ export const customerStatusOptions = [
 	{ value: 'communicating_positive', label: '沟通中(能转化)', className: 'tm-status-tag--positive' },
 	{ value: 'communicating_difficult', label: '沟通中(难转化)', className: 'tm-status-tag--difficult' },
 	{ value: 'invited', label: '已邀约', className: 'tm-status-tag--invited' },
-	{ value: 'converted', label: '已转化', className: 'tm-status-tag--success' },
+	{ value: 'converted', label: '已签单', className: 'tm-status-tag--success' },
+	{ value: 'refunded', label: '已退单', className: 'tm-status-tag--refunded' },
 	{ value: 'not_interested', label: '不考虑', className: 'tm-status-tag--danger' }
 ];
 
@@ -14,6 +15,8 @@ const legacyStatusValueMap = {
 	'沟通中(难转化)': 'communicating_difficult',
 	'已邀约': 'invited',
 	'已转化': 'converted',
+	'已签单': 'converted',
+	'已退单': 'refunded',
 	'不考虑': 'not_interested'
 };
 

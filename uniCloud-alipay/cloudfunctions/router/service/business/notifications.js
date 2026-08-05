@@ -19,10 +19,19 @@ const cloudObject = {
       .count();
     const rows = (result.data || []).map((item) => {
       // 修复早期转移通知未写入原咨询师名称的问题，优先使用已保存的操作人名称展示。
+      let row = item;
       if (item.type === 'customer_transfer' && item.actor_name && String(item.content || '').indexOf('咨询师未分配已将') === 0) {
-        return { ...item, content: String(item.content).replace('咨询师未分配已将', `咨询师${item.actor_name}已将`) };
+        row = { ...row, content: String(item.content).replace('咨询师未分配已将', `咨询师${item.actor_name}已将`) };
       }
-      return item;
+      if (row.customer_id) {
+        const route = row.route || '';
+        if (!route) {
+          row = { ...row, route: `/pages/custom/records?customer_id=${encodeURIComponent(row.customer_id)}` };
+        } else if (route.indexOf('/pages/custom/records') === 0 && route.indexOf('customer_id=') === -1) {
+          row = { ...row, route: `${route}${route.indexOf('?') === -1 ? '?' : '&'}customer_id=${encodeURIComponent(row.customer_id)}` };
+        }
+      }
+      return row;
     });
     return {
       code: 0,

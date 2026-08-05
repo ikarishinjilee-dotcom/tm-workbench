@@ -12,6 +12,9 @@
 					<el-button v-if="isAdmin" :size="$global.size" :icon="showDeleted ? 'el-icon-menu' : 'el-icon-delete'" @click="toggleDeletedView">
 						{{ showDeleted ? '客户信息管理' : '已删除客户信息' }}
 					</el-button>
+					<el-button :size="$global.size" icon="el-icon-download" @click="exportCustomers">导出Excel</el-button>
+					<el-button v-if="canManageCustomers" :size="$global.size" icon="el-icon-upload2" :loading="importingCustomers" @click="chooseCustomerImportFile">导入Excel</el-button>
+					<el-button v-if="canManageCustomers" :size="$global.size" icon="el-icon-document-copy" @click="downloadCustomerImportTemplate">下载导入模板</el-button>
 					<el-button v-if="canManageCustomers" type="primary" :size="$global.size" icon="el-icon-plus" @click="add">{{ primaryActionText }}</el-button>
 					<el-button :size="$global.size" icon="el-icon-refresh" @click="refresh">刷新</el-button>
 				</view>
@@ -20,6 +23,11 @@
 				<vk-data-table ref="table" :action="table.action" :columns="visibleTableColumns" :query-form-param="query"
 					:right-btns="table.rightBtns" :custom-right-btns="table.customRightBtns" :row-no="true" :pagination="true" :top="0"
 					@detail="showDetail" @update="update" @delete="remove" @row-click="openDetailFromRow">
+					<template v-slot:parent_name="{ row }">
+						<view :class="['customer-name-cell', { 'is-starred': row.is_starred }]">
+							<text class="customer-name-text">{{ row.parent_name || '未命名客户' }}</text>
+						</view>
+					</template>
 					<template v-slot:status="{ row }">
 						<status-tag :status="row.status"></status-tag>
 					</template>
@@ -40,7 +48,7 @@
 					<el-button size="small" :type="activeCustomerTab === 'materials' ? 'primary' : 'default'" @click="activeCustomerTab = 'materials'">资料</el-button>
 				</el-button-group>
 				<view class="customer-tabs__actions">
-					<view v-if="isLeadProviderRole" class="customer-tabs__consultant">
+					<view v-if="canAssignConsultantInForm" class="customer-tabs__consultant">
 						<text class="customer-tabs__consultant-label">咨询师</text>
 						<el-select v-model="form.data.consultant_id" size="small" filterable placeholder="请选择咨询师" :disabled="isLeadProviderConsultantLocked(form.data)">
 							<el-option v-for="item in consultantOptions" :key="item.value" :label="item.label" :value="item.value"></el-option>
@@ -73,6 +81,7 @@
 									<view class="followup-item__meta">
 										<view class="followup-item__time">{{ formatFollowupTime(record.contact_time) }}</view>
 										<status-tag :status="record.status"></status-tag>
+										<view class="followup-item__operator">{{ formatFollowupOperator(record) }}</view>
 									</view>
 									<view v-if="isTransferRecord(record)" class="followup-item__content followup-transfer-content">
 										咨询师：<text class="followup-transfer-name followup-transfer-name--from">{{ transferConsultants(record).from }}</text>
@@ -82,7 +91,7 @@
 							<view v-else class="followup-item__content">{{ record.content }}</view>
 								</view>
 						<view class="followup-item__actions">
-							<el-button v-if="canEditWorkflow && !isSystemRecord(record) && !isTransferRecord(record)" type="text" size="mini" @click="editFollowup(record, index)">编辑</el-button>
+							<el-button v-if="canEditFollowupRecord(record)" type="text" size="mini" @click="editFollowup(record, index)">编辑</el-button>
 							<el-button v-if="canEditWorkflow && !isSystemRecord(record) && !isTransferRecord(record)" type="text" size="mini" class="followup-delete" @click="removeFollowup(record, index)">删除</el-button>
 								</view>
 							</view>
@@ -93,7 +102,7 @@
 				<view class="signing-panel">
 					<view class="signing-panel__title"><text class="followup-panel__line"></text>签单信息</view>
 					<view v-if="!canEditWorkflow" class="signing-panel__hint">当前角色可查看签单信息，但不能编辑。</view>
-					<view v-else-if="!isSigningEditable(form.data)" class="signing-panel__hint">客户状态为“已转化”后才可以编辑签单信息，当前内容仍会保留。</view>
+					<view v-else-if="!isSigningEditable(form.data)" class="signing-panel__hint">客户状态为“已签单”后才可以编辑签单信息，当前内容仍会保留。</view>
 					<view class="signing-fields">
 						<view class="signing-field">
 							<view class="signing-field__label">签单省份</view>
@@ -153,7 +162,11 @@
 					</view>
 					<view v-if="!detail.data.is_deleted && canManageCustomers" class="customer-detail-profile__actions">
 						<el-button plain type="primary" icon="el-icon-edit" @click="editFromDetail">{{ isLeadProviderRole ? '编辑信息' : '编辑资料' }}</el-button>
-						<el-button v-if="canEditWorkflow" plain type="warning" icon="el-icon-sort" @click="openTransfer">转移客户</el-button>
+						<el-button v-if="canStarCustomers" plain :class="['detail-focus-action', { 'is-starred': detail.data.is_starred }]"
+							:icon="detail.data.is_starred ? 'el-icon-star-on' : 'el-icon-star-off'" @click="toggleStar(detail.data)">
+							{{ detail.data.is_starred ? '取消重点' : '设为重点' }}
+						</el-button>
+						<el-button v-if="canEditWorkflow" plain type="warning" icon="el-icon-sort" @click="openTransfer(detail.data)">转移客户</el-button>
 						<el-button v-if="canEditWorkflow" plain type="danger" icon="el-icon-delete" @click="removeFromDetail">删除客户</el-button>
 					</view>
 					<view v-else-if="isAdmin" class="customer-detail-profile__actions">
@@ -229,8 +242,8 @@
 						</view>
 					</view>
 				</view>
-				<view v-else-if="detail.activeTab === 'progress'" class="customer-detail-tab-panel"><view class="followup-panel"><view class="followup-panel__header"><view class="followup-panel__title"><text class="followup-panel__line"></text>进度记录</view><el-button v-if="!detail.data.is_deleted && canEditWorkflow" type="primary" size="mini" icon="el-icon-plus" @click="addFollowupFromDetail">新增进度</el-button></view><view v-for="(record, index) in detail.data.followup_records || []" :key="record._id || index" class="followup-item"><view class="followup-item__dot"></view><view class="followup-item__body"><view class="followup-item__meta"><view class="followup-item__time">{{ formatFollowupTime(record.contact_time) }}</view><status-tag :status="record.status"></status-tag></view><view v-if="isTransferRecord(record)" class="followup-item__content followup-transfer-content">咨询师：<text class="followup-transfer-name followup-transfer-name--from">{{ transferConsultants(record).from }}</text><text> 变更为 </text><text class="followup-transfer-name followup-transfer-name--to">{{ transferConsultants(record).to }}</text></view><view v-else-if="isSystemRecord(record)" class="followup-item__content followup-system-content"><text>{{ systemRecordPrefix(record) }}</text><text :class="systemRecordAction(record) === 'delete' ? 'followup-system-action--delete' : 'followup-system-action--restore'">{{ systemRecordAction(record) === 'delete' ? '删除' : '恢复' }}</text></view><view v-else class="followup-item__content">{{ record.content }}</view></view><view class="followup-item__actions"><el-button v-if="canEditWorkflow && !detail.data.is_deleted && !isSystemRecord(record) && !isTransferRecord(record)" type="text" size="mini" @click="editFollowupFromDetail(record)">编辑</el-button><el-button v-if="canEditWorkflow && !detail.data.is_deleted && !isSystemRecord(record) && !isTransferRecord(record)" type="text" size="mini" class="followup-delete" @click="removeFollowupFromDetail(record, index)">删除</el-button></view></view><view v-if="!(detail.data.followup_records || []).length" class="followup-empty">暂无进度记录</view></view></view>
-				<view v-else-if="detail.activeTab === 'signing'" class="customer-detail-tab-panel signing-detail-panel"><view class="customer-detail-card"><view class="customer-detail-card__title"><i></i>签单信息</view><view v-if="!isSigningEditable(detail.data)" class="signing-panel__hint">客户状态为“已转化”时可编辑，当前状态下签单内容只读。</view><view class="customer-detail-fields signing-detail-fields"><view class="customer-detail-field"><i class="el-icon-location"></i><span>签单省份</span><strong>{{ detail.data.signing_province || '未填写' }}</strong></view><view class="customer-detail-field"><i class="el-icon-map-location"></i><span>签单城市</span><strong>{{ detail.data.signing_city || '未填写' }}</strong></view><view class="customer-detail-field"><i class="el-icon-money"></i><span>合同金额</span><strong>{{ detail.data.contract_amount || '未填写' }}</strong></view><view class="customer-detail-text-row"><span>合同主要内容</span><strong>{{ detail.data.contract_content || '未填写' }}</strong></view></view></view></view>
+				<view v-else-if="detail.activeTab === 'progress'" class="customer-detail-tab-panel"><view class="followup-panel"><view class="followup-panel__header"><view class="followup-panel__title"><text class="followup-panel__line"></text>进度记录</view><el-button v-if="!detail.data.is_deleted && canEditWorkflow" type="primary" size="mini" icon="el-icon-plus" @click="addFollowupFromDetail">新增进度</el-button></view><view v-for="(record, index) in detail.data.followup_records || []" :key="record._id || index" class="followup-item"><view class="followup-item__dot"></view><view class="followup-item__body"><view class="followup-item__meta"><view class="followup-item__time">{{ formatFollowupTime(record.contact_time) }}</view><status-tag :status="record.status"></status-tag><view class="followup-item__operator">{{ formatFollowupOperator(record) }}</view></view><view v-if="isTransferRecord(record)" class="followup-item__content followup-transfer-content">咨询师：<text class="followup-transfer-name followup-transfer-name--from">{{ transferConsultants(record).from }}</text><text> 变更为 </text><text class="followup-transfer-name followup-transfer-name--to">{{ transferConsultants(record).to }}</text></view><view v-else-if="isSystemRecord(record)" class="followup-item__content followup-system-content"><text>{{ systemRecordPrefix(record) }}</text><text :class="systemRecordAction(record) === 'delete' ? 'followup-system-action--delete' : 'followup-system-action--restore'">{{ systemRecordAction(record) === 'delete' ? '删除' : '恢复' }}</text></view><view v-else class="followup-item__content">{{ record.content }}</view></view><view class="followup-item__actions"><el-button v-if="canEditFollowupRecord(record) && !detail.data.is_deleted" type="text" size="mini" @click="editFollowupFromDetail(record)">编辑</el-button><el-button v-if="canEditWorkflow && !detail.data.is_deleted && !isSystemRecord(record) && !isTransferRecord(record)" type="text" size="mini" class="followup-delete" @click="removeFollowupFromDetail(record, index)">删除</el-button></view></view><view v-if="!(detail.data.followup_records || []).length" class="followup-empty">暂无进度记录</view></view></view>
+				<view v-else-if="detail.activeTab === 'signing'" class="customer-detail-tab-panel signing-detail-panel"><view class="customer-detail-card"><view class="customer-detail-card__title"><i></i>签单信息</view><view v-if="!isSigningEditable(detail.data)" class="signing-panel__hint">客户状态为“已签单”时可编辑，当前状态下签单内容只读。</view><view class="customer-detail-fields signing-detail-fields"><view class="customer-detail-field"><i class="el-icon-location"></i><span>签单省份</span><strong>{{ detail.data.signing_province || '未填写' }}</strong></view><view class="customer-detail-field"><i class="el-icon-map-location"></i><span>签单城市</span><strong>{{ detail.data.signing_city || '未填写' }}</strong></view><view class="customer-detail-field"><i class="el-icon-money"></i><span>合同金额</span><strong>{{ detail.data.contract_amount || '未填写' }}</strong></view><view class="customer-detail-text-row"><span>合同主要内容</span><strong>{{ detail.data.contract_content || '未填写' }}</strong></view></view></view></view>
 				<view v-else class="customer-detail-tab-panel"><view class="customer-detail-card customer-detail-materials-panel"><view class="customer-detail-card__title"><i></i>客户资料</view><customer-file-grid :files="detailFiles" :show-download="true" :show-delete="false" @download="downloadMaterial"></customer-file-grid><view v-if="!detailFiles.length" class="customer-detail-empty">暂无客户资料</view></view></view>
 			</view>
 		</vk-data-dialog>
@@ -254,12 +267,51 @@
 <script>
 	import StatusTag from '@/components/StatusTag.vue';
 	import CustomerFileGrid from '@/components/CustomerFileGrid.vue';
-	import { customerStatusOptions, normalizeCustomerStatus } from '@/common/customer-status.js';
+	import { customerStatusOptions, normalizeCustomerStatus, getCustomerStatusOption } from '@/common/customer-status.js';
 	let vk = uni.vk;
 	const statusOptions = customerStatusOptions;
+	const postConvertedStatusValues = ['converted', 'refunded'];
+	const adminRoleKeys = ['admin', 'super_admin', 'administrator'];
+	const importHeaderFieldMap = {
+		'家长姓名': 'parent_name',
+		'姓名': 'parent_name',
+		'客户姓名': 'parent_name',
+		'创建时间': '_add_time',
+		'状态': 'status',
+		'咨询师ID': 'consultant_id',
+		'咨询师': 'consultant_name',
+		'线索来源': 'source',
+		'线索成本': 'clue_cost',
+		'线索成本/元': 'clue_cost',
+		'联系电话': 'contact_phone',
+		'手机号': 'contact_phone',
+		'手机号码': 'contact_phone',
+		'是否加微信': 'wechat_added',
+		'微信号': 'wechat',
+		'微信': 'wechat',
+		'详细地址': 'detail_address',
+		'孩子姓名': 'child_name',
+		'孩子年级': 'child_grade',
+		'孩子学习情况': 'study_status',
+		'意向地区': 'intended_regions',
+		'详细城市': 'intended_region_remark',
+		'最近进度': 'progress',
+		'备注': 'remark',
+		'备注内容': 'remark',
+		'签单省份': 'signing_province',
+		'签单城市': 'signing_city',
+		'合同金额': 'contract_amount',
+		'合同主要内容': 'contract_content',
+	};
+	const yesValues = ['是', '已加', '已加微信', 'yes', 'y', 'true', '1'];
+	const noValues = ['否', '未加', '未加微信', 'no', 'n', 'false', '0'];
 	const wechatAddedOptions = [
 		{ value: true, label: '已加微信' },
 		{ value: false, label: '未加微信' }
+	];
+	const starredOptions = [
+		{ value: true, label: '重点客户' },
+		{ value: false, label: '普通客户' }
 	];
 	// 线索来源使用稳定编码，显示名称可以独立调整，不参与业务判断
 	const sourceOptions = [
@@ -286,7 +338,52 @@
 		map[item.value] = item.label;
 		return map;
 	}, {});
+	const sourceImportValueMap = sourceOptions.reduce((map, item) => {
+		map[item.label] = item.value;
+		map[item.value] = item.value;
+		return map;
+	}, {});
 	const formatSourceLabel = (value) => sourceLabelMap[normalizeSourceValue(value)] || value || '';
+	const formatStatusLabel = (value) => getCustomerStatusOption(value).label || value || '';
+	const formatWechatAddedLabel = (value) => [true, 1, 'true', '1'].includes(value) ? '已加微信' : '未加微信';
+	const formatFollowupRecordTime = (value) => {
+		if (!value) return '';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return String(value);
+		const pad = (number) => String(number).padStart(2, '0');
+		return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+	};
+	const getFollowupRecordTime = (record = {}) => {
+		const fields = [record.contact_time, record.update_time, record.create_time, record._add_time];
+		for (const value of fields) {
+			if (!value) continue;
+			const time = new Date(value).getTime();
+			if (!Number.isNaN(time)) return time;
+			const numericValue = Number(value);
+			if (Number.isFinite(numericValue) && numericValue > 0) return numericValue;
+		}
+		return 0;
+	};
+	const formatFollowupOperatorForExport = (record = {}) => {
+		if (record.last_operator_name) return `编辑人：${record.last_operator_name}`;
+		if (record.operator_name) return `记录人：${record.operator_name}`;
+		if (record.consultant_name) return `记录人：${record.consultant_name}`;
+		return '';
+	};
+	const formatCustomerFollowups = (value, row = {}) => {
+		const records = Array.isArray(row.followup_records) ? row.followup_records : [];
+		if (!records.length) return value || '';
+		return [...records].sort((a, b) => getFollowupRecordTime(b) - getFollowupRecordTime(a)).map((record, index) => {
+			const parts = [];
+			const time = formatFollowupRecordTime(record.contact_time || record.update_time || record.create_time);
+			if (time) parts.push(time);
+			if (record.status) parts.push(formatStatusLabel(record.status));
+			const content = String(record.content || '').trim();
+			const operator = formatFollowupOperatorForExport(record);
+			const mainText = [parts.join(' '), content].filter(Boolean).join('：');
+			return `${index + 1}. ${mainText}${operator ? `（${operator}）` : ''}`;
+		}).filter(Boolean).join('\n');
+	};
 	const roleSourceScopeMap = {
 		live_teacher: ['live_teacher_zhou'],
 		'直播老师': ['live_teacher_zhou'],
@@ -297,6 +394,24 @@
 		{ keywords: ['直播'], sources: ['live_teacher_zhou'] },
 		{ keywords: ['投流'], sources: ['wechat_channels_promotion', 'douyin_promotion'] }
 	];
+	const leadProviderIdentityKeywords = ['直播', '投流', '视频号', '抖音'];
+	const isConsultantOptionCandidate = (item = {}) => {
+		if (!item || !item._id || item.status === 1 || item.allow_login_background === false) return false;
+		const values = [
+			item.username,
+			item.nickname,
+			item.realname,
+			...(Array.isArray(item.role) ? item.role : [item.role]),
+			...(Array.isArray(item.roles) ? item.roles : [item.roles]),
+			...(Array.isArray(item.role_id) ? item.role_id : [item.role_id]),
+			...(Array.isArray(item.roleIds) ? item.roleIds : [item.roleIds])
+		].flatMap((value) => {
+			if (!value) return [];
+			if (typeof value === 'object') return [value.role_id, value.value, value.role_name, value.name].filter(Boolean);
+			return [value];
+		});
+		return !values.some((value) => leadProviderIdentityKeywords.some((keyword) => String(value).includes(keyword)));
+	};
 	// 地址组件只接受每一级都带 code/name 的对象，兼容历史字符串和不完整数据。
 	const normalizeRegionForForm = (region) => {
 		if (!region || typeof region !== 'object' || Array.isArray(region)) return {};
@@ -347,6 +462,9 @@
 				},
 				consultantOptions: [],
 				materialFiles: [],
+				importingCustomers: false,
+				routeCustomerId: '',
+				routeAddOpened: false,
 				detail: {
 					show: false,
 					data: {},
@@ -397,14 +515,16 @@
 						{
 							key: 'status',
 							title: '状态',
-								type: 'text',
-								width: tableWidth(150, 132)
+							type: 'text',
+							width: tableWidth(150, 132),
+							formatter: (value) => formatStatusLabel(value)
 						},
 						{
 							key: 'is_deleted',
 							title: '删除状态',
 							type: 'text',
-							width: tableWidth(90, 78)
+							width: tableWidth(90, 78),
+							formatter: (value) => value ? '已删除' : '正常'
 						},
 						{
 							key: 'source',
@@ -428,11 +548,9 @@
 						{
 							key: 'wechat_added',
 							title: '是否加微信',
-							type: 'switch',
+							type: 'text',
 							width: tableWidth(110, 92),
-							activeValue: true,
-							inactiveValue: false,
-							disabled: true
+							formatter: (value) => formatWechatAddedLabel(value)
 						},
 						{
 							key: 'wechat',
@@ -485,9 +603,10 @@
 						},
 						{
 							key: 'progress',
-							title: '最近进度',
+							title: '进度记录',
 							type: 'textarea',
-							width: tableWidth(220, 160)
+							width: tableWidth(320, 220),
+							formatter: (value, row) => formatCustomerFollowups(value, row)
 						},
 						{
 							key: 'remark',
@@ -585,6 +704,14 @@
 							data: sourceOptions
 						},
 						{
+							key: 'is_starred',
+							title: '是否重点客户',
+							type: 'select',
+							placeholder: '请选择是否重点',
+							mode: '==',
+							data: starredOptions
+						},
+						{
 							key: 'clue_cost',
 							title: '线索成本',
 							type: 'money',
@@ -608,6 +735,8 @@
 					type: 'add',
 					action: 'business/custom2.save',
 					data: {},
+					skipConvertedStatusPrompt: false,
+					convertedStatusConfirmed: false,
 					rules: {
 						parent_name: [{
 							required: true,
@@ -795,6 +924,7 @@
 				followup: {
 					show: false,
 					editingIndex: -1,
+					skipConvertedStatusPrompt: false,
 					form: {
 						action: 'business/custom2.addFollowup',
 						type: 'add',
@@ -812,6 +942,11 @@
 							span: 24,
 							valueFormat: 'yyyy-MM-dd HH:mm:ss',
 							placeholder: '请选择沟通时间',
+							pickerOptions: {
+								disabledDate(time) {
+									return time.getTime() > Date.now();
+								},
+							},
 						}, {
 							key: 'status',
 							title: '状态',
@@ -864,7 +999,7 @@
 			},
 			isAdmin() {
 				if (this.accessProfile.loaded) return Boolean(this.accessProfile.is_admin);
-				return this.userRoles.includes('admin');
+				return this.userRoles.some((role) => adminRoleKeys.includes(role));
 			},
 			leadProviderSources() {
 				if (this.accessProfile.loaded) return this.accessProfile.visible_sources || [];
@@ -882,6 +1017,9 @@
 			},
 			isLeadProviderRole() {
 				return this.leadProviderSources.length > 0;
+			},
+			canAssignConsultantInForm() {
+				return this.isLeadProviderRole || (this.isAdmin && this.form.type === 'add');
 			},
 			canViewConsultantFilter() {
 				return this.isAdmin || this.isLeadProviderRole;
@@ -908,17 +1046,20 @@
 						}
 						return { ...column };
 					});
-				if (!this.isLeadProviderRole) return columns;
+				if (!this.canAssignConsultantInForm) return columns;
 				return columns.filter((column) => column.key !== 'consultant_id');
 			},
 			visibleFormRules() {
-				if (this.isLeadProviderRole) return this.form.rules;
+				if (this.canAssignConsultantInForm) return this.form.rules;
 				const rules = { ...this.form.rules };
 				delete rules.consultant_id;
 				return rules;
 			},
 			canEditWorkflow() {
 				return !this.isLeadProviderRole;
+			},
+			canStarCustomers() {
+				return this.canManageCustomers;
 			},
 			primaryActionText() {
 				return this.isLeadProviderRole ? '分发客户' : '新增客户';
@@ -933,12 +1074,93 @@
 					this.form.data.clue_cost = '';
 				}
 			},
+			'$route.query.customer_id'() {
+				this.handleRouteCustomer();
+			},
+			'$route.query.customerId'() {
+				this.handleRouteCustomer();
+			},
+			'$route.query.id'() {
+				this.handleRouteCustomer();
+			},
+			'$route.query.action'() {
+				this.handleRouteCustomer();
+			},
+			'followup.form.data.status'(value, oldValue) {
+				this.confirmConvertedFollowupStatus(value, oldValue);
+			},
 		},
-		onLoad() {
+		onLoad(options = {}) {
 			vk = this.vk;
+			this.handleRouteCustomer(options);
 			this.loadAccessProfile();
 		},
+		onShow() {
+			this.handleRouteCustomer();
+		},
+		beforeDestroy() {
+			if (this.customerImportInput && this.customerImportInput.parentNode) {
+				this.customerImportInput.removeEventListener('change', this.handleCustomerImportFileChange);
+				this.customerImportInput.parentNode.removeChild(this.customerImportInput);
+			}
+		},
 		methods: {
+			canEditFollowupRecord(record = {}) {
+				if (!this.canEditWorkflow || this.isSystemRecord(record) || this.isTransferRecord(record)) return false;
+				if (this.isAdmin) return true;
+				return !postConvertedStatusValues.includes(normalizeCustomerStatus(record.status));
+			},
+			getRouteOptions(options = {}) {
+				const routeQuery = this.$route && this.$route.query ? this.$route.query : {};
+				const currentPage = typeof getCurrentPages === 'function' ? getCurrentPages().slice(-1)[0] : null;
+				const pageOptions = currentPage && currentPage.options ? currentPage.options : {};
+				return { ...pageOptions, ...routeQuery, ...options };
+			},
+			handleRouteCustomer(options = {}) {
+				const routeOptions = this.getRouteOptions(options);
+				const routeAction = routeOptions.action || routeOptions.open || '';
+				if (routeAction === 'add' || routeAction === 'new') {
+					this.routeCustomerId = '';
+					if (this.routeAddOpened) return;
+					this.routeAddOpened = true;
+					this.$nextTick(() => this.add());
+					return;
+				}
+				this.routeAddOpened = false;
+				const customerId = routeOptions.customer_id || routeOptions.customerId || routeOptions.id || '';
+				if (!customerId) {
+					this.routeCustomerId = '';
+					return;
+				}
+				if (customerId === this.routeCustomerId) return;
+				this.routeCustomerId = customerId;
+				this.openCustomerFromRoute(customerId);
+			},
+			clearRouteCustomerQuery() {
+				const routeKeys = ['customer_id', 'customerId', 'id', 'action', 'open'];
+				this.routeCustomerId = '';
+				this.routeAddOpened = false;
+
+				// 清理当前路由对象中的一次性参数，避免页面再次激活时重复打开详情。
+				if (this.$route && this.$route.query) {
+					routeKeys.forEach((key) => {
+						if (this.$delete) this.$delete(this.$route.query, key);
+						else delete this.$route.query[key];
+					});
+				}
+
+				// 只改地址栏，不触发后台标签页路由重建，避免关闭弹窗后页面变空白。
+				if (typeof window === 'undefined' || !window.location || !window.history) return;
+				const hash = window.location.hash || '';
+				const hashParts = hash.split('?');
+				if (hashParts.length < 2) return;
+				const hashPath = hashParts[0] || '#/pages/custom/records';
+				const query = new URLSearchParams(hashParts.slice(1).join('?'));
+				routeKeys.forEach((key) => query.delete(key));
+				const nextQuery = query.toString();
+				const nextUrl = `${window.location.pathname}${window.location.search}${hashPath}${nextQuery ? `?${nextQuery}` : ''}`;
+				window.history.replaceState(window.history.state, document.title, nextUrl);
+			},
 			loadAccessProfile() {
 				vk.callFunction({
 					url: 'business/custom2.getAccessProfile',
@@ -982,7 +1204,7 @@
 					data: {},
 					success: (result) => {
 						const rows = Array.isArray(result && result.rows) ? result.rows : [];
-						this.consultantOptions = rows.filter((item) => item && item._id && item.status !== 1 && item.allow_login_background !== false).map((item) => ({
+						this.consultantOptions = rows.filter(isConsultantOptionCandidate).map((item) => ({
 							value: item._id,
 							label: item.nickname || item.username || '未命名咨询师',
 						}));
@@ -1070,6 +1292,179 @@
 			refresh() {
 				this.$refs.table.refresh();
 			},
+			downloadCustomerImportTemplate() {
+				if (typeof document === 'undefined') {
+					this.$notify({ title: '提示', message: '当前环境不支持下载模板', type: 'warning', position: 'bottom-right' });
+					return;
+				}
+				const publicPath = (typeof process !== 'undefined' && process.env && process.env.BASE_URL) || '/admin/';
+				const basePath = publicPath.endsWith('/') ? publicPath : `${publicPath}/`;
+				const link = document.createElement('a');
+				link.href = `${basePath}static/templates/customer-import-template.xlsx?t=${Date.now()}`;
+				link.download = '客户导入模板.xlsx';
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
+			},
+			exportCustomers() {
+				if (!this.$refs.table || typeof this.$refs.table.exportExcel !== 'function') {
+					this.$notify({ title: '提示', message: '当前表格暂不支持导出', type: 'warning', position: 'bottom-right' });
+					return;
+				}
+				this.$refs.table.exportExcel({
+					showColumnSelector: true,
+					freezeHeader: true,
+					autoFilter: true,
+				});
+			},
+			chooseCustomerImportFile() {
+				if (this.importingCustomers) return;
+				if (typeof document === 'undefined') {
+					this.$notify({ title: '提示', message: '当前环境不支持选择本地Excel文件', type: 'warning', position: 'bottom-right' });
+					return;
+				}
+				let input = this.customerImportInput;
+				if (!input) {
+					input = document.createElement('input');
+					input.type = 'file';
+					input.accept = '.xlsx';
+					input.style.display = 'none';
+					input.addEventListener('change', this.handleCustomerImportFileChange);
+					document.body.appendChild(input);
+					this.customerImportInput = input;
+				}
+				input.value = '';
+				input.click();
+			},
+			async handleCustomerImportFileChange(event) {
+				const input = event && event.target;
+				const file = input && input.files && input.files[0];
+				if (!file) return;
+				if (!/\.xlsx$/i.test(file.name || '')) {
+					this.$notify({ title: '提示', message: '请上传 .xlsx 格式的Excel文件', type: 'warning', position: 'bottom-right' });
+					input.value = '';
+					return;
+				}
+				this.importingCustomers = true;
+				try {
+					if (!vk.pubfn || typeof vk.pubfn.parseXlsxFile !== 'function') throw new Error('当前环境不支持解析Excel');
+					const excelRows = await vk.pubfn.parseXlsxFile({ file, index: 0, mode: 1 });
+					const rows = this.buildCustomerImportRows(excelRows);
+					if (!rows.length) throw new Error('没有可导入的客户数据，请确认第一行是表头且包含“家长姓名”');
+					const result = await new Promise((resolve, reject) => {
+						vk.callFunction({
+							url: 'business/custom2.importCustomers',
+							data: { rows },
+							success: resolve,
+							fail: reject,
+						});
+					});
+					if (result && result.code !== 0) throw new Error(result.msg || '导入失败');
+					const summary = result && result.data || {};
+					const failCount = Number(summary.fail_count || 0);
+					this.$notify({
+						title: '提示',
+						message: `导入完成：成功 ${summary.success_count || 0} 条${failCount ? `，失败 ${failCount} 条` : ''}`,
+						type: failCount ? 'warning' : 'success',
+						position: 'bottom-right',
+					});
+					this.refresh();
+				} catch (error) {
+					this.$notify({
+						title: '提示',
+						message: error && error.message || '导入失败，请检查Excel内容',
+						type: 'error',
+						position: 'bottom-right',
+					});
+				} finally {
+					this.importingCustomers = false;
+					if (input) input.value = '';
+				}
+			},
+			buildCustomerImportRows(excelRows = []) {
+				const consultantMap = this.consultantOptions.reduce((map, item) => {
+					map[item.value] = item.value;
+					map[item.label] = item.value;
+					return map;
+				}, {});
+				return (Array.isArray(excelRows) ? excelRows : [])
+					.map((row) => this.normalizeCustomerImportRow(row, consultantMap))
+					.filter((row) => row && row.parent_name);
+			},
+			normalizeCustomerImportRow(row = {}, consultantMap = {}) {
+				const data = {};
+				Object.keys(row || {}).forEach((header) => {
+					const field = importHeaderFieldMap[String(header || '').trim()] || String(header || '').trim();
+					const value = this.normalizeCustomerImportValue(field, row[header]);
+					if (value === undefined || value === null || value === '') return;
+					data[field] = value;
+				});
+				if (data.consultant_name && !data.consultant_id && consultantMap[data.consultant_name]) {
+					data.consultant_id = consultantMap[data.consultant_name];
+				}
+				if (!data.status) data.status = 'initial_contact';
+				if (!data._add_time) data._add_time = Date.now();
+				if (!data.source) data.source = this.availableSourceOptions[0] && this.availableSourceOptions[0].value || 'other';
+				data.attachments = [];
+				return data;
+			},
+			normalizeCustomerImportValue(field, value) {
+				if (value && typeof value === 'object' && value.text !== undefined) value = value.text;
+				if (value instanceof Date) return value.getTime();
+				const text = String(value === undefined || value === null ? '' : value).trim();
+				if (!text) return '';
+				if (field === 'status') {
+					const matched = statusOptions.find((item) => item.value === text || item.label === text);
+					return matched ? matched.value : normalizeCustomerStatus(text);
+				}
+				if (field === 'source') return normalizeSourceValue(sourceImportValueMap[text] || text);
+				if (field === 'wechat_added') {
+					const lowerText = text.toLowerCase();
+					if (yesValues.includes(lowerText) || yesValues.includes(text)) return true;
+					if (noValues.includes(lowerText) || noValues.includes(text)) return false;
+					return Boolean(text);
+				}
+				if (field === 'intended_regions') return text.split(/[、,，;；\s]+/).map((item) => item.trim()).filter(Boolean);
+				if (field === 'clue_cost') {
+					const amount = Number(text.replace(/[^\d.-]/g, ''));
+					return Number.isFinite(amount) ? amount : 0;
+				}
+				if (field === '_add_time') {
+					const time = new Date(text.replace(/-/g, '/')).getTime();
+					return Number.isNaN(time) ? Date.now() : time;
+				}
+				return text;
+			},
+			toggleStar(customer) {
+				if (!this.canStarCustomers || !customer || !customer._id || customer.is_deleted) return;
+				const targetStarred = !customer.is_starred;
+				vk.callFunction({
+					url: 'business/custom2.toggleStar',
+					data: {
+						customer_id: customer._id,
+						is_starred: targetStarred,
+					},
+					success: (result) => {
+						if (!result || result.code === 0) {
+							this.$set(customer, 'is_starred', targetStarred);
+							if (this.detail.data && this.detail.data._id === customer._id) this.$set(this.detail.data, 'is_starred', targetStarred);
+							if (this.form.data && this.form.data._id === customer._id) this.$set(this.form.data, 'is_starred', targetStarred);
+							this.$notify({
+								title: '提示',
+								message: result && result.msg || (targetStarred ? '已设为重点客户' : '已取消重点客户'),
+								type: 'success',
+								position: 'bottom-right',
+							});
+							this.refresh();
+							return;
+						}
+						this.showCustomerSubmitNotice(result.msg || '重点客户状态更新失败');
+					},
+					fail: () => {
+						this.showCustomerSubmitNotice('重点客户状态更新失败，请重试', 'error');
+					},
+				});
+			},
 			showDetail({ item }) {
 				const data = {
 					intended_regions: [],
@@ -1079,10 +1474,12 @@
 					signing_city: '',
 					contract_amount: '',
 					contract_content: '',
+					is_starred: false,
 					...item
 				};
 				data.status = normalizeCustomerStatus(data.status);
 				data.source = normalizeSourceValue(data.source);
+				data.followup_records = this.sortFollowupRecords(data.followup_records);
 				if (data._add_time) data._add_time = new Date(data._add_time);
 				this.detail.data = data;
 				this.detail.activeTab = 'info';
@@ -1091,6 +1488,22 @@
 				this.detail.show = true;
 				this.resolveMaterialFiles(this.detailFiles).then((files) => {
 					if (this.detail.data._id === data._id) this.detailFiles = files;
+				});
+			},
+			openCustomerFromRoute(customerId) {
+				vk.callFunction({
+					url: 'business/custom2.getList',
+					data: {
+						formData: { _id: customerId },
+						pageIndex: 1,
+						pageSize: 1,
+					},
+					success: (result) => {
+						const item = result && Array.isArray(result.rows) ? result.rows[0] : null;
+						if (item && item._id) this.showDetail({ item });
+						else this.$notify({ title: '提示', message: '未找到该客户，可能已被删除或无权查看', type: 'warning' });
+						this.clearRouteCustomerQuery();
+					},
 				});
 			},
 			openDetailFromRow(row) {
@@ -1164,6 +1577,7 @@
 			},
 			openTransfer(customer = this.detail.data) {
 				if (!this.canEditWorkflow) return;
+				if (customer && customer.type && !customer._id) customer = this.detail.data;
 				if (!customer || !customer._id) return;
 				vk.callFunction({
 					url: 'business/custom2.getConsultants',
@@ -1171,7 +1585,7 @@
 					success: (result) => {
 						const rows = Array.isArray(result && result.rows) ? result.rows : [];
 						const currentConsultantId = customer.consultant_id;
-						const consultants = rows.filter((item) => item && item._id && item._id !== currentConsultantId && item.status !== 1 && item.allow_login_background !== false).map((item) => ({
+						const consultants = rows.filter((item) => isConsultantOptionCandidate(item) && item._id !== currentConsultantId).map((item) => ({
 							value: item._id,
 							label: item.nickname || item.username || '未命名咨询师',
 						}));
@@ -1239,6 +1653,43 @@
 			isSigningEditable(data) {
 				return Boolean(data && !data.is_deleted && normalizeCustomerStatus(data.status) === 'converted');
 			},
+			shouldConfirmConvertedCustomerStatus() {
+				if (!this.form.show || this.form.convertedStatusConfirmed) return false;
+				const currentStatus = normalizeCustomerStatus(this.form.data && this.form.data.status);
+				const originalStatus = normalizeCustomerStatus(this.form.data && this.form.data.original_status);
+				return currentStatus === 'converted' && originalStatus !== 'converted';
+			},
+			confirmConvertedCustomerBeforeSubmit(callback) {
+				if (!this.shouldConfirmConvertedCustomerStatus()) {
+					callback();
+					return;
+				}
+				this.$confirm('状态改为“已签单”，代表该客户已经签单成交。请确认是否继续？', '确认已签单', {
+					confirmButtonText: '确认已签单',
+					cancelButtonText: '取消',
+					type: 'warning',
+				}).then(() => {
+					this.form.convertedStatusConfirmed = true;
+					callback();
+				}).catch(() => {
+					this.activeCustomerTab = 'info';
+				});
+			},
+			confirmConvertedFollowupStatus(value, oldValue) {
+				if (!this.followup.show || this.followup.skipConvertedStatusPrompt) return;
+				if (normalizeCustomerStatus(value) !== 'converted' || normalizeCustomerStatus(oldValue) === 'converted') return;
+				this.$confirm('状态改为“已签单”，代表该客户已经签单成交。请确认是否继续？', '确认已签单', {
+					confirmButtonText: '确认已签单',
+					cancelButtonText: '取消',
+					type: 'warning',
+				}).catch(() => {
+					this.followup.skipConvertedStatusPrompt = true;
+					this.followup.form.data.status = oldValue || 'initial_contact';
+					this.$nextTick(() => {
+						this.followup.skipConvertedStatusPrompt = false;
+					});
+				});
+			},
 			formatDetailRegion(region) {
 				if (!region) return '';
 				if (typeof region === 'string') return region;
@@ -1268,7 +1719,10 @@
 					contract_content: '',
 					consultant_id: '',
 					original_consultant_id: '',
+					original_status: 'initial_contact',
+					is_starred: false,
 				};
+				this.form.convertedStatusConfirmed = false;
 				this.form.type = 'add';
 				this.form.title = this.primaryActionText;
 				this.form.show = true;
@@ -1286,17 +1740,21 @@
 					signing_city: '',
 					contract_amount: '',
 					contract_content: '',
+					is_starred: false,
 					...item
 				};
 				data.status = normalizeCustomerStatus(data.status);
+				data.original_status = data.status;
 				data.source = normalizeSourceValue(data.source);
 				data.region = normalizeRegionForForm(data.region);
+				data.followup_records = this.sortFollowupRecords(data.followup_records);
 				data.original_consultant_id = data.consultant_id || '';
 				if (!paidSourceValues.includes(data.source)) data.clue_cost = '';
 				if (data._add_time) data._add_time = new Date(data._add_time);
 				this.materialFiles = Array.isArray(data.attachments) ? data.attachments.slice() : [];
 				this.syncCustomerMaterials(data);
 				this.form.data = data;
+				this.form.convertedStatusConfirmed = false;
 				this.resolveMaterialFiles(this.materialFiles).then((files) => {
 					this.materialFiles = files;
 					this.form.data.attachments = files;
@@ -1310,53 +1768,77 @@
 				deleteFn
 			}) {
 				if (!this.canEditWorkflow) return;
-				deleteFn({
-					action: 'business/custom2.delete',
+			deleteFn({
+				action: 'business/custom2.delete',
 					data: {
 						_id: item._id
 					},
 					refresh: true
+			});
+			},
+			syncFollowupStatusOptions(customerStatus) {
+				const normalizedStatus = normalizeCustomerStatus(customerStatus);
+				const options = !this.isAdmin && postConvertedStatusValues.includes(normalizedStatus)
+					? statusOptions.filter((item) => postConvertedStatusValues.includes(item.value))
+					: statusOptions;
+				const statusColumn = this.followup.form.columns.find((item) => item.key === 'status');
+				if (statusColumn) statusColumn.data = options;
+			},
+			setFollowupFormData(data) {
+				this.followup.skipConvertedStatusPrompt = true;
+				this.followup.form.data = data;
+				this.$nextTick(() => {
+					this.followup.skipConvertedStatusPrompt = false;
 				});
 			},
 			openFollowup() {
 				if (!this.canEditWorkflow) return;
+				this.syncFollowupStatusOptions(this.form.data.status);
 				this.followup.editingIndex = -1;
 				this.followup.form.type = 'add';
 				this.followup.form.action = 'business/custom2.addFollowup';
-				this.followup.form.data = {
+				this.setFollowupFormData({
 					customer_id: this.form.data._id,
 					contact_time: new Date(),
 					status: normalizeCustomerStatus(this.form.data.status),
 					content: '',
-				};
+				});
 				this.followup.show = true;
 			},
 			editFollowup(record, index) {
-				if (!this.canEditWorkflow) return;
+				if (!this.canEditFollowupRecord(record)) {
+					this.showCustomerSubmitNotice('已签单或已退单的进度只有管理员可以编辑');
+					return;
+				}
+				this.syncFollowupStatusOptions(this.form.data.status);
 				this.followup.editingIndex = index;
 				this.followup.form.type = 'update';
 				this.followup.form.action = 'business/custom2.updateFollowup';
-				this.followup.form.data = {
+				this.setFollowupFormData({
 					customer_id: this.form.data._id,
 					followup_id: record._id,
 					contact_time: record.contact_time ? new Date(record.contact_time) : new Date(),
 					status: normalizeCustomerStatus(record.status),
 					content: record.content || '',
-				};
+				});
 				this.followup.show = true;
 			},
 			editFollowupFromDetail(record) {
-				if (!this.canEditWorkflow) return;
+				if (!this.canEditFollowupRecord(record)) {
+					this.showCustomerSubmitNotice('已签单或已退单的进度只有管理员可以编辑');
+					return;
+				}
+				this.syncFollowupStatusOptions(this.detail.data.status);
 				this.followup.editingIndex = (this.detail.data.followup_records || []).indexOf(record);
 				this.followup.form.type = 'update';
 				this.followup.form.action = 'business/custom2.updateFollowup';
-				this.followup.form.data = {
+				this.setFollowupFormData({
 					customer_id: this.detail.data._id,
 					followup_id: record._id,
 					contact_time: record.contact_time ? new Date(record.contact_time) : new Date(),
 					status: normalizeCustomerStatus(record.status),
 					content: record.content || '',
-				};
+				});
 				this.detail.show = false;
 				this.followup.show = true;
 			},
@@ -1371,33 +1853,64 @@
 					vk.callFunction({
 						url: 'business/custom2.deleteFollowup',
 						data: { customer_id: this.detail.data._id, followup_id: record._id },
-						success: () => {
-							this.detail.data.followup_records.splice(index, 1);
-							this.detail.data.status = this.detail.data.followup_records[0] && this.detail.data.followup_records[0].status ? normalizeCustomerStatus(this.detail.data.followup_records[0].status) : 'initial_contact';
+						success: (result = {}) => {
+							this.detail.data.followup_records = Array.isArray(result.records)
+								? result.records
+								: this.sortFollowupRecords(this.detail.data.followup_records.filter((item) => item._id !== record._id));
+							this.detail.data.status = result.status || this.getLatestManualFollowupStatus(this.detail.data.followup_records);
+							this.detail.data.progress = result.progress || this.getLatestManualFollowupContent(this.detail.data.followup_records);
 							this.$notify({ title: '提示', message: '进度记录已删除', type: 'success', position: 'bottom-right' });
 						},
 					});
 				}).catch(() => {});
 			},
-			followupSuccess() {
+			followupSuccess(result = {}) {
 				if (this.$notify && typeof this.$notify.closeAll === 'function') this.$notify.closeAll();
 				const followupId = this.followup.form.data.followup_id || this.followup.form.data._id;
+				const currentUser = (this.$store && this.$store.state && this.$store.state.$user && this.$store.state.$user.userInfo) || {};
+				const currentUserId = currentUser._id || currentUser.uid || currentUser.user_id || '';
+				const currentUserName = currentUser.nickname || currentUser.username || currentUser.realname || '';
 				const record = {
 					...this.followup.form.data,
 					_id: followupId,
 					contact_time: this.followup.form.data.contact_time,
+					// 兼容云函数尚未更新时的返回结果，正式记录仍由服务端写入。
+					...(currentUserId ? { operator_id: currentUserId, last_operator_id: currentUserId } : {}),
+					...(currentUserName ? { operator_name: currentUserName, last_operator_name: currentUserName } : {}),
 				};
-				const records = [...(this.form.data.followup_records || [])];
-				if (this.followup.editingIndex > -1) {
-					records.splice(this.followup.editingIndex, 1, record);
-				} else {
-					records.unshift(record);
+				let records = Array.isArray(result.records) ? result.records : [...(this.form.data.followup_records || [])];
+				if (Array.isArray(result.records) && followupId) {
+					records = records.map((item) => item && item._id === followupId
+						? {
+							...item,
+							...(item.operator_id || currentUserId ? { operator_id: item.operator_id || currentUserId } : {}),
+							...(item.operator_name || currentUserName ? { operator_name: item.operator_name || currentUserName } : {}),
+							...(item.last_operator_id || currentUserId ? { last_operator_id: item.last_operator_id || currentUserId } : {}),
+							...(item.last_operator_name || currentUserName ? { last_operator_name: item.last_operator_name || currentUserName } : {}),
+						}
+						: item);
 				}
-						this.form.data.followup_records = records;
-						if (records[0] && records[0].status) this.form.data.status = normalizeCustomerStatus(records[0].status);
+				if (!result.records) {
+					if (this.followup.editingIndex > -1) {
+						records.splice(this.followup.editingIndex, 1, record);
+					} else {
+						records.unshift(record);
+					}
+					records = this.sortFollowupRecords(records);
+				}
+				this.form.data.followup_records = records;
+				if (this.detail.data && this.detail.data._id === this.followup.form.data.customer_id) {
+					this.detail.data.followup_records = records;
+					this.detail.data.status = result.status || this.getLatestManualFollowupStatus(records);
+					this.detail.data.progress = result.progress || this.getLatestManualFollowupContent(records);
+				}
+				if (this.form.data && this.form.data._id === this.followup.form.data.customer_id) {
+					this.form.data.status = result.status || this.getLatestManualFollowupStatus(records);
+					this.form.data.progress = result.progress || this.getLatestManualFollowupContent(records);
+				}
 				this.$notify({
 					title: '提示',
-					message: this.followup.editingIndex > -1 ? '进度已更新' : '进度已保存',
+					message: result.msg || (this.followup.editingIndex > -1 ? '进度已更新' : '进度已保存'),
 					type: 'success',
 					position: 'bottom-right',
 				});
@@ -1413,14 +1926,46 @@
 					vk.callFunction({
 						url: 'business/custom2.deleteFollowup',
 						data: { customer_id: this.form.data._id, followup_id: record._id },
-						success: () => {
-							this.form.data.followup_records.splice(index, 1);
-							const latestRecord = this.form.data.followup_records[0];
-							this.form.data.status = latestRecord && latestRecord.status ? normalizeCustomerStatus(latestRecord.status) : 'initial_contact';
+						success: (result = {}) => {
+							this.form.data.followup_records = Array.isArray(result.records)
+								? result.records
+								: this.sortFollowupRecords(this.form.data.followup_records.filter((item) => item._id !== record._id));
+							this.form.data.status = result.status || this.getLatestManualFollowupStatus(this.form.data.followup_records);
+							this.form.data.progress = result.progress || this.getLatestManualFollowupContent(this.form.data.followup_records);
 							this.$notify({ title: '提示', message: '进度记录已删除', type: 'success', position: 'bottom-right' });
 						},
 					});
 				}).catch(() => {});
+			},
+			getFollowupRecordTime(record = {}) {
+				const values = [record.contact_time, record.create_time, record.update_time, record._add_time];
+				for (const value of values) {
+					if (!value) continue;
+					const date = value instanceof Date ? value : new Date(value);
+					const time = date.getTime();
+					if (!Number.isNaN(time)) return time;
+					const numericValue = Number(value);
+					if (Number.isFinite(numericValue) && numericValue > 0) return numericValue;
+				}
+				return 0;
+			},
+			sortFollowupRecords(records = []) {
+				return [...(Array.isArray(records) ? records : [])].sort((a, b) => {
+					const timeDiff = this.getFollowupRecordTime(b) - this.getFollowupRecordTime(a);
+					if (timeDiff) return timeDiff;
+					return this.getFollowupRecordTime({ contact_time: b.create_time }) - this.getFollowupRecordTime({ contact_time: a.create_time });
+				});
+			},
+			getLatestManualFollowup(records = []) {
+				return this.sortFollowupRecords(records).find((item) => !this.isSystemRecord(item) && !this.isTransferRecord(item));
+			},
+			getLatestManualFollowupStatus(records = []) {
+				const latestRecord = this.getLatestManualFollowup(records);
+				return latestRecord && latestRecord.status ? normalizeCustomerStatus(latestRecord.status) : 'initial_contact';
+			},
+			getLatestManualFollowupContent(records = []) {
+				const latestRecord = this.getLatestManualFollowup(records);
+				return latestRecord ? latestRecord.content || '' : '';
 			},
 			formatFollowupTime(value) {
 				if (!value) return '';
@@ -1428,6 +1973,20 @@
 				if (Number.isNaN(date.getTime())) return value;
 				const pad = (number) => String(number).padStart(2, '0');
 				return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+			},
+			formatFollowupOperator(record = {}) {
+				if (record.last_operator_name) return `编辑人：${record.last_operator_name}`;
+				if (record.operator_name) return `记录人：${record.operator_name}`;
+				if (record.consultant_name) return `记录人：${record.consultant_name}`;
+				if (record.consultant_id) return '记录人：当前咨询师';
+				const currentUser = (this.$store && this.$store.state && this.$store.state.$user && this.$store.state.$user.userInfo) || {};
+				const currentUserId = currentUser._id || currentUser.uid || currentUser.user_id || '';
+				const operatorId = record.last_operator_id || record.operator_id || '';
+				if (operatorId && currentUserId && String(operatorId) === String(currentUserId)) {
+					const currentUserName = currentUser.nickname || currentUser.username || currentUser.realname || '当前用户';
+					return `记录人：${currentUserName}`;
+				}
+				return '记录人：未记录';
 			},
 			isTransferRecord(record) {
 				if (!record) return false;
@@ -1634,15 +2193,16 @@
 					},
 				});
 			},
-	success() {
+	success(result = {}) {
 			// 关闭框架自动弹出的右上角成功提示，只保留页面右下角轻提示
 			if (this.$notify && typeof this.$notify.closeAll === 'function') this.$notify.closeAll();
+			const convertedMessage = result && result.msg && String(result.msg).includes('已签单') ? result.msg : '';
 			const successMessage = this.isLeadProviderRole
 				? (this.form.type === 'update' ? '客户信息已更新' : '已成功分发')
 				: (this.form.type === 'update' ? '客户信息已更新' : '客户信息已新增');
 			this.$notify({
 				title: '提示',
-				message: successMessage,
+				message: convertedMessage || successMessage,
 				type: 'success',
 				position: 'bottom-right',
 			});
@@ -1703,7 +2263,7 @@
 			},
 			submitCustomerDialog() {
 				// 顶部“咨询师”选择框不在 vk-data-form 内，需在外层提交入口单独校验。
-				if (this.isLeadProviderRole && !String(this.form.data.consultant_id || '').trim()) {
+				if (this.canAssignConsultantInForm && !String(this.form.data.consultant_id || '').trim()) {
 					this.activeCustomerTab = 'info';
 					this.showCustomerSubmitNotice('请选择咨询师');
 					return;
@@ -1722,7 +2282,9 @@
 				// 客户信息改为外层显式提交，这样后端业务拦截也能统一转为右下角提醒。
 				this.activeCustomerTab = 'info';
 				this.$nextTick(() => {
-					this.validateAndSubmitCustomer();
+					this.confirmConvertedCustomerBeforeSubmit(() => {
+						this.validateAndSubmitCustomer();
+					});
 				});
 			},
 			},
@@ -1799,6 +2361,17 @@
 		font-weight: 700;
 	}
 
+	.customer-name-cell {
+		display: inline-flex;
+		align-items: center;
+		min-width: 0;
+	}
+
+	.customer-name-cell.is-starred .customer-name-text {
+		color: #f5a623;
+		font-weight: 600;
+	}
+
 	.customer-detail-wechat {
 		padding: 6px 11px;
 		border: 1px solid #a8e5c0;
@@ -1821,6 +2394,32 @@
 	.customer-detail-profile__actions {
 		gap: 12px;
 		padding-bottom: 22px;
+	}
+
+	.customer-detail-profile__actions .detail-focus-action {
+		border-color: #f7d98b;
+		background: #fffdf6;
+		color: #c88719;
+	}
+
+	.customer-detail-profile__actions .detail-focus-action:hover,
+	.customer-detail-profile__actions .detail-focus-action:focus {
+		border-color: #f3c95f;
+		background: #fff7df;
+		color: #b87508;
+	}
+
+	.customer-detail-profile__actions .detail-focus-action.is-starred {
+		border-color: #f5a623;
+		background: #f5a623;
+		color: #fff;
+	}
+
+	.customer-detail-profile__actions .detail-focus-action.is-starred:hover,
+	.customer-detail-profile__actions .detail-focus-action.is-starred:focus {
+		border-color: #df8f0e;
+		background: #df8f0e;
+		color: #fff;
 	}
 
 	.customer-detail-tabs {
@@ -2532,6 +3131,12 @@
 	.followup-item__time {
 		color: #7b8797;
 		font-size: 12px;
+	}
+
+	.followup-item__operator {
+		color: #98a2b3;
+		font-size: 12px;
+		white-space: nowrap;
 	}
 
 	.followup-item__actions {
