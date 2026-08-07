@@ -37,8 +37,9 @@
       return { visible: false, localMessages: [] };
     },
     computed: {
+      // 直接从 prop 计算未读数（保证与父级数据源实时一致，避免 panel 与 trigger 显示不一致）。
       unreadCount() {
-        return this.localMessages.filter((message) => !message.read).length;
+        return (this.messages || []).filter((message) => !message.read).length;
       },
       badgeValue() {
         return this.unreadCount > 99 ? '99+' : this.unreadCount;
