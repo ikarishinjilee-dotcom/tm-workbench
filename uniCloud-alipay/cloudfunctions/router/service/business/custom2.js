@@ -113,6 +113,56 @@ const defaultQualityByStatus = {
   refunded: 'invalid',
   not_interested: 'invalid',
 };
+// 客户状态辅助：标准化字典项字段。
+const normalizeCustomerStatusOption = (item = {}) => ({
+  _id: item._id,
+  value: item.value,
+  label: item.label || item.value,
+  built_in: Boolean(item.built_in),
+  enabled: item.enabled !== false,
+  sort: Number(item.sort) || 0,
+  aliases: Array.isArray(item.aliases) ? item.aliases.filter(Boolean) : [],
+});
+
+// 线索来源集合名与默认数据：首次访问时由 getLeadSourceOptions 自动建表。
+const leadSourceCollectionName = 'uni-id-lead-sources';
+const defaultLeadSourceOptions = [
+  { value: 'live', label: '直播来源', built_in: true, sort: 10 },
+  { value: 'wechat_channels_promotion', label: '视频号线索', built_in: true, sort: 20 },
+  { value: 'douyin_promotion', label: '抖音线索', built_in: true, sort: 30 },
+  { value: 'old_customer', label: '老客户', built_in: true, sort: 40 },
+  { value: 'customer_referral', label: '客户转介绍', built_in: true, sort: 50 },
+  { value: 'other', label: '其他来源', built_in: true, sort: 60 },
+];
+const normalizeLeadSourceOption = (item = {}) => ({
+  _id: item._id,
+  value: item.value,
+  label: item.label || item.value,
+  built_in: Boolean(item.built_in),
+  sort: Number(item.sort) || 0,
+});
+const getLeadSourceOptions = async (db) => {
+  const collection = db.collection(leadSourceCollectionName);
+  const result = await collection.orderBy('sort', 'asc').limit(200).get();
+  if (result.data && result.data.length) return result.data.map(normalizeLeadSourceOption);
+  const now = Date.now();
+  await collection.add(defaultLeadSourceOptions.map((item) => ({ ...item, _add_time: now, _update_time: now })));
+  return defaultLeadSourceOptions.map(normalizeLeadSourceOption);
+};
+
+// 客户状态辅助：自动建表并返回标准化后的状态选项。
+const getCustomerStatusOptions = async (db, includeDisabled = true) => {
+  const collection = db.collection(customerStatusCollectionName);
+  let result = await collection.orderBy('sort', 'asc').limit(200).get();
+  if (!result.data || !result.data.length) {
+    const now = Date.now();
+    await collection.add(defaultCustomerStatusOptions.map((item) => ({ ...item, _add_time: now, _update_time: now })));
+    result = { data: defaultCustomerStatusOptions.map((item) => ({ ...item })) };
+  }
+  const options = (result.data || []).map(normalizeCustomerStatusOption);
+  return includeDisabled ? options : options.filter((item) => item.enabled !== false);
+};
+
 const customerStatusCollectionName = 'uni-id-customer-statuses';
 const defaultCustomerStatusOptions = customerStatusOptions.map((item, index) => ({
   ...item,
