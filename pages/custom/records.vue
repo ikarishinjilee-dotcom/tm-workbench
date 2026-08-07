@@ -3225,8 +3225,30 @@
 			padding-bottom: 12px;
 		}
 
+		.customer-detail-profile__identity {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 8px;
+		}
+
+		.customer-detail-profile__name {
+			width: 100%;
+			margin-bottom: 2px;
+			font-size: 18px;
+		}
+
 		.customer-detail-profile__actions {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 8px;
 			padding-bottom: 0;
+		}
+
+		.customer-detail-profile__actions .el-button {
+			width: 100%;
+			margin-left: 0 !important;
+			padding: 8px 4px !important;
 		}
 
 		.customer-detail-tabs {
