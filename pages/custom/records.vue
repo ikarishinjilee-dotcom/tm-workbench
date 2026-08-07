@@ -3856,6 +3856,28 @@
 		user-select: none;
 	}
 
+	/* 手机端工具栏：标题居中 + 按钮 2 列网格布局（避免 6 个按钮挤成两行三列） */
+	@media screen and (max-width: 600px) {
+		::v-deep .vk-page-card-toolbar {
+			flex-direction: column;
+			align-items: stretch;
+			gap: 10px;
+		}
+		::v-deep .vk-page-card-toolbar .vk-page-card-title {
+			text-align: center;
+		}
+		::v-deep .vk-page-card-actions {
+			display: grid;
+			grid-template-columns: repeat(2, 1fr);
+			gap: 8px;
+		}
+		::v-deep .vk-page-card-actions .el-button {
+			width: 100%;
+			margin-left: 0 !important;
+			padding: 8px 6px !important;
+		}
+	}
+
 	/* 手机端快捷时间范围按钮：紧凑、自动换行 */
 	.mobile-time-presets ::v-deep .el-radio-group {
 		display: flex;
