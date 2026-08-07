@@ -106,16 +106,16 @@
         </el-form-item>
         <el-form-item label="来源范围">
           <el-checkbox-group v-model="roleDialog.form.lead_sources">
+            <view v-if="dynamicSources.length" class="source-group">
+              <view class="source-group__title">直播账号来源（每个账号自动只看自己）</view>
+              <el-checkbox v-for="item in dynamicSources" :key="item.value" :label="item.value" class="source-dynamic">{{ item.label }}</el-checkbox>
+            </view>
             <view v-if="generalSources.length" class="source-group">
               <view class="source-group__title">通用来源</view>
               <el-checkbox v-for="item in generalSources" :key="item.value" :label="item.value">{{ item.label }}</el-checkbox>
             </view>
-            <view v-if="dynamicSources.length" class="source-group">
-              <view class="source-group__title">直播账号专属来源</view>
-              <el-checkbox v-for="item in dynamicSources" :key="item.value" :label="item.value" class="source-dynamic">{{ item.label }}</el-checkbox>
-            </view>
           </el-checkbox-group>
-          <div class="form-tip">勾选通用来源即可按来源管理客户；如需按具体直播老师账号细分，需勾选对应"直播账号专属来源"。</div>
+          <div class="form-tip">勾选"通用来源"可管理对应渠道客户；勾选"全部直播账号来源"则直播老师角色下每个账号自动只看自己的客户，无需逐个配置。</div>
         </el-form-item>
       </el-form>
       <span slot="footer">
@@ -229,19 +229,15 @@ export default {
           if (result && result.code === 0) {
             const dictSources = Array.isArray(result.data) ? result.data.filter((item) => item.value !== 'live') : [];
             const dynamicSources = Array.isArray(result.dynamic_source_options) ? result.dynamic_source_options : [];
-            // 虚拟项 "全部直播账号来源"：后端识别 value='live'，权限匹配时会展开为所有可见的动态直播来源（live_teacher_*）。
-            // 前端不传给管理员手填具体账号的繁琐过程，新增直播老师后无需再改权限。
+            // 虚拟项 "全部直播账号来源"：后端识别 value='live'，权限匹配时会展开为登录账号自己的动态直播来源。
             const virtualAllLive = { value: 'live', label: '全部直播账号来源' };
-            const merged = [virtualAllLive, ...dynamicSources, ...dictSources]
+            // 列表展示：包含所有来源（含具体直播账号），让管理员可见完整目录
+            this.sourceCatalog = [virtualAllLive, ...dynamicSources, ...dictSources]
               .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
-            // 给每个来源打 kind 标记，弹窗分组渲染：通用来源 vs 直播账号专属来源
-            const dynamicValueSet = new Set([...dynamicSources.map((item) => item.value), 'live']);
-            this.sourceCatalog = merged;
-            this.sourceOptions = merged.map((item) => ({
-              value: item.value,
-              label: item.label,
-              kind: dynamicValueSet.has(item.value) ? 'dynamic' : 'general',
-            }));
+            // 弹窗只展示"通用来源" + "全部直播账号来源"虚拟项；具体账号来源由后端按账号自动收窄，不需手动配。
+            const generalOptions = dictSources.map((item) => ({ value: item.value, label: item.label, kind: 'general' }));
+            const liveOptions = [{ ...virtualAllLive, kind: 'dynamic' }];
+            this.sourceOptions = [...liveOptions, ...generalOptions];
           } else {
             this.$message.warning((result && result.msg) || '线索来源加载失败');
           }
