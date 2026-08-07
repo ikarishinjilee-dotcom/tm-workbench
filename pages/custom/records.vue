@@ -2,7 +2,7 @@
 	<view class="page-body">
 		<view class="vk-page-card vk-page-search-card">
 			<vk-data-table-query v-model="query.formData" :columns="visibleQueryColumns" :span="4" :collapse-rows="1"
-				:collapse-default-expand="!isMobileViewport()" @search="search">
+				:collapse-default-expand="!isMobileView" @search="search">
 			<template v-slot:_add_time_range="{ form }">
 				<el-date-picker
 					v-model="form._add_time_range"
@@ -480,7 +480,22 @@
 			CustomerFileGrid
 		},
 		data() {
+			// 同步检测移动端：H5 端优先用 window.innerWidth（uni.getSystemInfoSync 在 H5 偶发 windowWidth=0，导致折叠失效）
+			let isMobileView = false;
+			try {
+				let viewportWidth = 0;
+				if (typeof window !== 'undefined' && window.innerWidth) {
+					viewportWidth = window.innerWidth;
+				} else if (uni && uni.getSystemInfoSync) {
+					const sys = uni.getSystemInfoSync();
+					viewportWidth = Number(sys.windowWidth || sys.screenWidth || 0);
+				}
+				isMobileView = viewportWidth > 0 && viewportWidth <= 600;
+			} catch (e) {
+				isMobileView = false;
+			}
 			return {
+				isMobileView,
 				activeCustomerTab: 'info',
 				signingProvinceOptions,
 				showDeleted: false,
