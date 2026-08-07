@@ -25,5 +25,45 @@
     "role_name": "自定义角色-1",
     "comment": "更细粒化的自定义角色权限示例",
     "permission": []
+  },
+  {
+    "_id": "operator",
+    "_add_time": 1786119526567,
+    "enable": true,
+    "role_id": "operator",
+    "role_name": "运营管理员",
+    "comment": "普通管理员：可登录后台，按绑定权限运营业务数据，不含系统级管理能力",
+    "permission": [],
+    "menu": []
+  },
+  {
+    "_id": "zhibo",
+    "_add_time": 1786119526567,
+    "enable": true,
+    "role_id": "zhibo",
+    "role_name": "直播老师",
+    "comment": "直播老师",
+    "permission": [],
+    "menu": ["tm-home", "tm-customer-records"]
+  },
+  {
+    "_id": "touliu",
+    "_add_time": 1786119526567,
+    "enable": true,
+    "role_id": "touliu",
+    "role_name": "投流老师",
+    "comment": "投流/引流老师",
+    "permission": [],
+    "menu": ["tm-home", "tm-customer-records"]
+  },
+  {
+    "_id": "zixunshi",
+    "_add_time": 1786119526567,
+    "enable": true,
+    "role_id": "zixunshi",
+    "role_name": "咨询师",
+    "comment": "咨询师",
+    "permission": [],
+    "menu": ["tm-home", "tm-customer-records"]
   }
 ]
