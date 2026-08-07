@@ -256,11 +256,12 @@ const getLiveTeacherSourceAliases = (userInfo = {}) => {
 };
 const isLiveTeacherUser = (userInfo = {}) => {
   const roleValues = normalizeRoleKeys(userInfo);
-  const identityValues = [userInfo.username, userInfo.nickname, userInfo.realname].filter(Boolean);
-  return [...roleValues, ...identityValues].some((value) => {
-    const text = String(value);
-    return ['live_teacher', 'zhibo', '直播'].some((keyword) => text === keyword || text.includes(keyword));
-  });
+  const identityValues = [userInfo.username, userInfo.nickname, userInfo.realname, userInfo.role_id].filter(Boolean);
+  // 命中 leadProviderSourceRoleMap 里的"直播老师"角色键。
+  if (roleValues.includes('live_teacher') || roleValues.includes('直播老师')) return true;
+  // 身份字段含直播/主播/zhibo/live_teacher 关键词。
+  const text = [...roleValues, ...identityValues].map(String).join(' ');
+  return /直播|主播|live_teacher|zhibo/i.test(text);
 };
 const getLiveTeacherSourceOption = (userInfo = {}) => {
   const aliases = getLiveTeacherSourceAliases(userInfo);
