@@ -361,14 +361,23 @@ const restrictLiveTeacherToOwnSource = (sources, userInfo) => {
   const filtered = sources.filter((source) => !isLiveDynamicValue(source) || ownAliases.includes(source));
   return Array.from(new Set(filtered));
 };
-const isLeadProviderUser = (userInfo = {}) => !isSuperAdmin(userInfo) && getLeadProviderVisibleSources(userInfo).length > 0;
+const isLeadProviderUser = (userInfo = {}) => {
+  // 必须从角色/身份判定，不能用 visibleSources.length>0 推断（咨询师配了 lead_sources 后会误判为 lead provider）
+  if (isSuperAdmin(userInfo)) return false;
+  const roleKeys = normalizeRoleKeys(userInfo);
+  const leadProviderRoles = ['live_teacher', 'zhibo', 'traffic_teacher', 'touliu', '直播老师', '投流老师'];
+  if (roleKeys.some((role) => leadProviderRoles.includes(role))) return true;
+  const identityValues = [userInfo.username, userInfo.nickname, userInfo.realname, userInfo.role_id].filter(Boolean);
+  const identityText = identityValues.map(String).join(' ');
+  return /直播|主播|投流|zhibo|touliu|live_teacher|traffic_teacher/i.test(identityText);
+};
 const isConsultantCandidate = (userInfo = {}) => !isSuperAdmin(userInfo) && !isLeadProviderUser(userInfo);
 const applyCustomerAccessWhere = ({ whereJson = {}, userInfo = {}, uid, admin, _ }) => {
   if (admin) return whereJson;
-  const visibleSources = getLeadProviderVisibleSources(userInfo);
-  if (visibleSources.length) {
-    whereJson.source = _.in(visibleSources);
+  if (isLeadProviderUser(userInfo)) {
+    whereJson.source = _.in(getLeadProviderVisibleSources(userInfo));
   } else {
+    // 咨询师/其他普通角色：只看归属自己的客户，不按 source 过滤
     whereJson.consultant_id = uid;
   }
   return whereJson;
