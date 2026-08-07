@@ -117,22 +117,35 @@ text {
   .el-select-dropdown,
   .el-cascader__dropdown,
   .el-autocomplete-suggestion__wrap {
+    width: auto !important;
     max-width: calc(100vw - 16px) !important;
   }
-  .el-picker-panel .el-picker-panel__body,
-  .el-picker-panel .el-date-table-wrap {
+  /* 日期范围选择器强制占满视口宽度（覆盖框架默认 540px+） */
+  .el-date-range-picker,
+  .el-date-range-picker .el-picker-panel__body-wrapper,
+  .el-date-range-picker .el-picker-panel__body {
+    width: 100% !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+  /* 隐藏日期范围选择器侧边栏快捷选项（今日/本周/本月/昨日 等），节省约 100px */
+  .el-date-range-picker .el-picker-panel__sidebar {
+    display: none !important;
+  }
+  /* 双月→单月：隐藏第二个日历表 */
+  .el-date-range-picker .el-date-table-wrap + .el-date-table-wrap {
+    display: none !important;
+  }
+  .el-picker-panel__body,
+  .el-picker-panel__content,
+  .el-date-table-wrap,
+  .el-date-table {
     width: 100% !important;
     min-width: 0 !important;
   }
-  .el-picker-panel .el-date-table {
-    width: 100% !important;
-  }
-  /* 双月日期范围选择器在手机上只显示单月（540px 双月超出 430px 屏幕） */
-  .el-date-range-picker .el-picker-panel__body + .el-picker-panel__body {
-    display: none !important;
-  }
+  /* 头部时间选择器紧凑 */
   .el-date-range-picker__time-header,
-  .el-date-range-picker__header {
+  .el-date-range-picker__header,
+  .el-date-range-picker .el-date-range-editor {
     padding: 8px !important;
   }
 }
