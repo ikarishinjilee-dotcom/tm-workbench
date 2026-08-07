@@ -1759,7 +1759,16 @@
 				return formatted === '未填写' ? '' : formatted.slice(11);
 			},
 			formatSourceLabel(value) {
-				return formatSourceLabel(value);
+				const normalized = normalizeSourceValue(value);
+				if (!normalized) return '';
+				// 优先查全量来源（含其他角色/已冻结账号的动态来源），保证列表渲染时客户任意来源值都能显示中文标签。
+				const accessOptions = (this.accessProfile && this.accessProfile.source_options_all) || [];
+				const accessItem = accessOptions.find((item) => item.value === normalized);
+				const baseLabel = (accessItem && accessItem.label) || sourceLabelMap[normalized] || value || '';
+				if (!baseLabel) return '';
+				// 直播老师账号被冻结/封禁时，给来源标签追加"（已隐藏）"提示。
+				const isHidden = (accessItem && accessItem.enabled === false) || hiddenSourceValues.has(normalized);
+				return isHidden ? `${baseLabel}（已隐藏）` : baseLabel;
 			},
 			formatClueCost(value) {
 				if (value === '' || value === null || value === undefined) return '0';

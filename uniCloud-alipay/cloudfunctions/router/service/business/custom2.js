@@ -595,7 +595,10 @@ const cloudObject = {
         is_admin: admin,
         is_lead_provider: !admin && visibleSources.length > 0,
         visible_sources: visibleSources,
+        // 当前用户实际可选的来源（受角色权限过滤）。用于下拉框与表单选择。
         source_options: sourceOptions,
+        // 全部来源的字典视图（含其他角色/已冻结账号），不参与权限过滤。供列表 formatter 等只读渲染使用。
+        source_options_all: mergedSourceOptions,
         status_options: configuredCustomerStatusOptions,
         role_keys: normalizeRoleKeys(currentUserInfo),
       },
