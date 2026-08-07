@@ -42,10 +42,16 @@
 						</view>
 					</template>
 					<template v-slot:status="{ row }">
-						<status-tag :status="row.status"></status-tag>
+						<el-tag size="mini" :type="getStatusTagType(row.status)">{{ getStatusTagLabel(row.status) }}</el-tag>
 					</template>
 					<template v-slot:is_deleted="{ row }">
 						<el-tag v-if="row.is_deleted" type="danger" size="mini">已删除</el-tag>
+					</template>
+					<template v-slot:wechat_added="{ row }">
+						<el-tag :type="row.wechat_added ? 'success' : 'info'" size="mini">
+							<i :class="row.wechat_added ? 'el-icon-chat-dot-round' : 'el-icon-chat-line-round'"></i>
+							{{ formatWechatAddedLabel(row.wechat_added) }}
+						</el-tag>
 					</template>
 				</vk-data-table>
 			</view>
@@ -170,7 +176,7 @@
 						<view class="customer-detail-profile__name">{{ detail.data.parent_name || '未命名客户' }}</view>
 						<status-tag :status="detail.data.status"></status-tag>
 						<el-tag v-if="detail.data.is_deleted" type="danger" size="mini">已删除</el-tag>
-						<view v-if="detail.data.wechat_added" class="customer-detail-wechat"><i class="el-icon-chat-dot-round"></i> 已加微信</view>
+						<view v-if="detail.data.wechat_added" class="customer-detail-wechat"><el-tag type="success" size="mini"><i class="el-icon-chat-dot-round"></i> 已加微信</el-tag></view>
 						<view v-if="isAdmin || isLeadProviderRole" class="customer-detail-consultant"><i class="el-icon-user"></i> 咨询师：{{ detail.data.consultant_name || '未分配' }}</view>
 					</view>
 					<view v-if="!detail.data.is_deleted && canManageCustomers" class="customer-detail-profile__actions">
@@ -213,7 +219,7 @@
 									<view class="customer-detail-field"><i class="el-icon-money"></i><span>线索成本/元</span><strong>{{ formatClueCost(detail.data.clue_cost) }}</strong></view>
 									<view class="customer-detail-field"><i class="el-icon-phone"></i><span>联系电话</span><strong>{{ detail.data.contact_phone || '未填写' }}</strong></view>
 									<view class="customer-detail-field"><i class="el-icon-location"></i><span>所在地区</span><strong>{{ formatDetailRegion(detail.data.region) || '未填写' }}</strong></view>
-									<view class="customer-detail-field"><i class="el-icon-success"></i><span>是否加微信</span><strong>{{ detail.data.wechat_added ? '是' : '否' }}</strong></view>
+									<view class="customer-detail-field"><i class="el-icon-success"></i><span>是否加微信</span><el-tag :type="detail.data.wechat_added ? 'success' : 'info'" size="mini"><i :class="detail.data.wechat_added ? 'el-icon-chat-dot-round' : 'el-icon-chat-line-round'"></i> {{ detail.data.wechat_added ? '已加' : '未加' }}</el-tag></view>
 									<view class="customer-detail-field"><i class="el-icon-document"></i><span>详细地址</span><strong>{{ detail.data.detail_address || '未填写' }}</strong></view>
 									<view class="customer-detail-field"><i class="el-icon-chat-dot-round"></i><span>微信号</span><strong>{{ detail.data.wechat || '未填写' }}</strong></view>
 									<view class="customer-detail-field"><i class="el-icon-time"></i><span>创建时间</span><strong>{{ formatDetailTime(detail.data._add_time) }}</strong></view>
@@ -543,9 +549,7 @@
 						{
 							key: 'status',
 							title: '状态',
-							type: 'text',
-							width: tableWidth(150, 132),
-							formatter: (value) => formatStatusLabel(value)
+							width: tableWidth(150, 132)
 						},
 						{
 							key: 'is_deleted',
@@ -576,9 +580,7 @@
 						{
 							key: 'wechat_added',
 							title: '是否加微信',
-							type: 'text',
-							width: tableWidth(110, 92),
-							formatter: (value) => formatWechatAddedLabel(value)
+							width: tableWidth(110, 92)
 						},
 						{
 							key: 'wechat',
@@ -845,7 +847,11 @@
 							type: 'switch',
 							span: 12,
 							activeValue: true,
-							inactiveValue: false
+							inactiveValue: false,
+							activeText: '已加',
+							inactiveText: '未加',
+							activeColor: '#18a058',
+							inactiveColor: '#a3a3a3'
 						},
 						{
 							key: 'wechat',
@@ -1757,6 +1763,12 @@
 			formatDetailClock(value) {
 				const formatted = this.formatDetailTime(value);
 				return formatted === '未填写' ? '' : formatted.slice(11);
+			},
+			getStatusTagType(status) {
+				return getCustomerStatusOption(status).tagType || 'info';
+			},
+			getStatusTagLabel(status) {
+				return getCustomerStatusOption(status).label || status || '';
 			},
 			formatSourceLabel(value) {
 				const normalized = normalizeSourceValue(value);

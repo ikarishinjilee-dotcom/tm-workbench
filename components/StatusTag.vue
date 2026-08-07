@@ -1,6 +1,6 @@
 <template>
 	<view class="tm-status-tag" :class="statusClass">
-		<el-tag size="mini" type="info">{{ statusLabel }}</el-tag>
+		<el-tag size="mini" :type="tagType">{{ statusLabel }}</el-tag>
 	</view>
 </template>
 
@@ -21,6 +21,9 @@
 			},
 			statusClass() {
 				return getCustomerStatusOption(this.status).className;
+			},
+			tagType() {
+				return getCustomerStatusOption(this.status).tagType || 'info';
 			}
 		}
 	};
