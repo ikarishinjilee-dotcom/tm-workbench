@@ -1770,6 +1770,9 @@
 			getStatusTagLabel(status) {
 				return getCustomerStatusOption(status).label || status || '';
 			},
+			formatWechatAddedLabel(value) {
+				return [true, 1, 'true', '1'].includes(value) ? '已加微信' : '未加微信';
+			},
 			formatSourceLabel(value) {
 				const normalized = normalizeSourceValue(value);
 				if (!normalized) return '';
