@@ -1,5 +1,5 @@
 <template>
-  <el-popover v-model="visible" placement="bottom-end" width="360" trigger="click" popper-class="message-center-popper">
+  <el-popover v-model="visible" placement="bottom-end" width="280" trigger="click" popper-class="message-center-popper">
     <view class="message-center__panel">
       <view class="message-center__panel-header">
         <text class="message-center__panel-title">消息中心</text>
