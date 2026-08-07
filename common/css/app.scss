@@ -123,16 +123,11 @@ text {
   .el-date-range-picker .el-picker-panel__sidebar {
     display: none !important;
   }
-  /* 双月→单月：所有相邻的 .el-date-table-wrap 中除第一个外全部隐藏（更稳健的选择器） */
-  .el-date-range-picker .el-picker-panel__content > .el-date-table-wrap:not(:first-child) {
-    display: none !important;
-  }
-  /* 第一个日历表占满 panel 宽度（让单月日历在弹层里居中显示） */
-  .el-date-range-picker .el-picker-panel__content > .el-date-table-wrap:first-child {
-    width: 100% !important;
-  }
-  .el-date-range-picker .el-picker-panel__content {
-    display: block !important;
+  /* 手机端双月面板等比缩小到 65%，保持原始双月布局整体缩进屏幕（约 540→350px） */
+  .el-picker-panel.el-date-range-picker {
+    transform: scale(0.65);
+    transform-origin: top left;
+    zoom: 0.65;
   }
   /* 头部紧凑 */
   .el-date-range-picker__time-header,
