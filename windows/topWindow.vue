@@ -665,11 +665,16 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      background-color: #191a23;
+      height: 50px;
+      padding: 0 14px;
 
       .logo-image {
-        width: 100%;
-        height: 50px;
+        height: 32px;
+        width: auto;
+        max-width: 180px;
         display: block;
+        object-fit: contain;
       }
     }
 
