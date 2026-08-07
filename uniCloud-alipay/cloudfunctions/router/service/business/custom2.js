@@ -1676,6 +1676,41 @@ const cloudObject = {
       create_time: new Date(),
       route: `/pages/custom/records?customer_id=${encodeURIComponent(customer_id)}`,
     });
+    // 客户转移时，同步通知该客户线索来源对应的直播/投流老师，便于老师掌握客户归属变化。
+    const sourceAliases = getSourceAliases(customer.source || '');
+    if (sourceAliases.length) {
+      const providerRes = await db.collection('uni-id-users').field({
+        _id: true,
+        username: true,
+        nickname: true,
+        status: true,
+        allow_login_background: true,
+        role: true,
+        roles: true,
+        role_id: true,
+        roleIds: true,
+      }).limit(500).get();
+      const providerIds = (providerRes.data || [])
+        .filter((item) => item.status !== 1 && item.allow_login_background !== false && isLeadProviderUser(item))
+        .filter((item) => getLeadProviderVisibleSources(item).some((source) => sourceAliases.includes(source)))
+        .map((item) => item._id)
+        .filter((providerId) => providerId && providerId !== uid);
+      if (providerIds.length) {
+        await Promise.all(providerIds.map((providerId) => db.collection('tm-notifications').add({
+          recipient_id: providerId,
+          type: 'customer_transfer',
+          title: '客户归属变更',
+          content: `您提供的客户“${customerName}”已由${currentName}转移至${targetName}名下`,
+          customer_id,
+          customer_name: customerName,
+          actor_id: uid,
+          actor_name: actorName,
+          read: false,
+          create_time: new Date(),
+          route: `/pages/custom/records?customer_id=${encodeURIComponent(customer_id)}`,
+        })));
+      }
+    }
     return { code: 0, consultant_id: target_consultant_id, consultant_name: targetName, record: transferRecord, msg: '客户已转移' };
   },
 
