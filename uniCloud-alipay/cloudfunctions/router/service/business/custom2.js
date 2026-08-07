@@ -102,6 +102,12 @@ const customerStatusOptions = [
   { value: 'not_interested', label: '不考虑' },
 ];
 // 客户质量分类：由客户状态管理页维护，内置状态使用默认等级。
+const customerQualityOptions = [
+  { value: 'high', label: '高意向' },
+  { value: 'normal', label: '普通咨询' },
+  { value: 'low', label: '低意向' },
+  { value: 'invalid', label: '无效' },
+];
 const customerQualityValues = ['high', 'normal', 'low', 'invalid'];
 // 内置状态默认质量等级，字典表未配置时兜底。
 const defaultQualityByStatus = {
