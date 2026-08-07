@@ -356,6 +356,8 @@
 		map[item.value] = item.value;
 		return map;
 	}, {});
+	// 历史兼容：早期历史客户可能保存 source='live'，前端需能渲染为"直播来源"以保证可读性。
+	sourceLabelMap.live = '直播来源';
 	const formatSourceLabel = (value) => sourceLabelMap[normalizeSourceValue(value)] || value || '';
 	const formatStatusLabel = (value) => getCustomerStatusOption(value).label || value || '';
 	const formatWechatAddedLabel = (value) => [true, 1, 'true', '1'].includes(value) ? '已加微信' : '未加微信';

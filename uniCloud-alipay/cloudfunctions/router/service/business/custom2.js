@@ -133,7 +133,6 @@ const normalizeCustomerStatusOption = (item = {}) => ({
 // 线索来源集合名与默认数据：首次访问时由 getLeadSourceOptions 自动建表。
 const leadSourceCollectionName = 'uni-id-lead-sources';
 const defaultLeadSourceOptions = [
-  { value: 'live', label: '直播来源', built_in: true, sort: 10 },
   { value: 'wechat_channels_promotion', label: '视频号线索', built_in: true, sort: 20 },
   { value: 'douyin_promotion', label: '抖音线索', built_in: true, sort: 30 },
   { value: 'old_customer', label: '老客户', built_in: true, sort: 40 },
