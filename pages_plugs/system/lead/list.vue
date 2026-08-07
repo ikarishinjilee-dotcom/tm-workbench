@@ -208,8 +208,10 @@ export default {
         data: {},
         success: (result) => {
           if (result && result.code === 0 && Array.isArray(result.data)) {
-            this.sourceCatalog = result.data;
-            this.sourceOptions = result.data.map((item) => ({ value: item.value, label: item.label }));
+            // “live”是后台权限匹配的内部通用值，不在管理页展示（动态来源由直播老师账号自动生成）。
+            const visibleSources = result.data.filter((item) => item.value !== 'live');
+            this.sourceCatalog = visibleSources;
+            this.sourceOptions = visibleSources.map((item) => ({ value: item.value, label: item.label }));
           } else {
             this.$message.warning((result && result.msg) || '线索来源加载失败');
           }
