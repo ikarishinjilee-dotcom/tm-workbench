@@ -224,10 +224,12 @@ export default {
             const dictSources = Array.isArray(result.data) ? result.data.filter((item) => item.value !== 'live') : [];
             // 合并直播老师账号动态来源（只读展示，标记为“直播账号”）。
             const dynamicSources = Array.isArray(result.dynamic_source_options) ? result.dynamic_source_options : [];
+            // 弹窗的“来源范围”复选框也需包含动态来源，使新增直播老师时该角色可立即勾选新来源。
             const merged = [...dynamicSources, ...dictSources]
+              .filter((item) => item.value !== 'live')
               .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
             this.sourceCatalog = merged;
-            this.sourceOptions = dictSources.map((item) => ({ value: item.value, label: item.label }));
+            this.sourceOptions = merged.map((item) => ({ value: item.value, label: item.label }));
           } else {
             this.$message.warning((result && result.msg) || '线索来源加载失败');
           }
