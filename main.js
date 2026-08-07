@@ -79,6 +79,10 @@ modulesFiles.keys().map((modulePath, index) => {
   }
 });
 
+// 显式注册根目录下的单文件组件（require.context 不会自动注册 length===1 的文件）。
+import StatusTag from '@/components/StatusTag.vue';
+Vue.component('StatusTag', StatusTag);
+
 // 引入 自定义全局css 样式
 import '@/common/css/app.scss';
 

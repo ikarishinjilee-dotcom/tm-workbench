@@ -29,3 +29,6 @@ unpackage/
 
 # Codex 本地工作记录
 .codex/
+
+# 早期恢复时的 .git 备份目录（已废弃，可手动删除 E:/Code/tm-workbench-admin/.git-backup-20260807）
+/.git-backup-*/
