@@ -45,12 +45,24 @@ const roleMatches = (role, candidates = []) => {
 };
 
 // getClientInfo 在部分调用链中只有 uid，没有完整角色信息，此时补查当前用户。
+// 同时：token 解码后 userInfo.role 可能为空或与数据库不一致（导致 isSuperAdmin 误判 → 看到空客户列表），
+// 这里强制从 uni-id-users 表补全 role / allow_login_background 等关键字段，避免访问控制错乱。
 const getCurrentUserInfo = async (context, uid, userInfo = {}) => {
   const roleValue = userInfo.role || userInfo.roles || userInfo.role_id || userInfo.roleIds;
   const hasRoleInfo = Array.isArray(roleValue) ? roleValue.length > 0 : Boolean(roleValue);
   let currentUserInfo = userInfo;
-  if (!hasRoleInfo && uid && typeof context.getUserInfo === 'function') {
-    currentUserInfo = (await context.getUserInfo()) || userInfo;
+  // token 角色缺失时先回查数据库，确保角色判断准确（避免 admin 误判为普通用户而看不到任何客户）
+  if (uid && (!hasRoleInfo || typeof context.getUserInfo === 'function' && !userInfo._id)) {
+    try {
+      const dbUserRes = await uniCloud.database().collection('uni-id-users').doc(uid).field({
+        role: true, roles: true, role_id: true, roleIds: true, allow_login_background: true,
+      }).get();
+      const dbUser = dbUserRes.data && dbUserRes.data[0];
+      if (dbUser) currentUserInfo = { ...currentUserInfo, ...dbUser, _id: dbUser._id || uid };
+    } catch (error) { /* fallback to token userInfo */ }
+  }
+  if (!hasRoleInfo && typeof context.getUserInfo === 'function') {
+    currentUserInfo = (await context.getUserInfo()) || currentUserInfo;
   }
   const roles = normalizeRoleList(currentUserInfo);
   const roleIds = roles.map((role) => typeof role === 'string' ? role : role && (role.role_id || role.value)).filter(Boolean);
