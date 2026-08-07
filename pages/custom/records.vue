@@ -1,8 +1,12 @@
 <template>
 	<view class="page-body">
-		<view class="vk-page-card vk-page-search-card">
+		<view class="vk-page-card vk-page-search-card" :class="{ 'is-search-folded': isMobileView && !searchCardOpen }">
+			<view v-if="isMobileView" class="search-card-toggle" @click="searchCardOpen = !searchCardOpen">
+				<i :class="searchCardOpen ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+				<text>{{ searchCardOpen ? '收起筛选' : '展开筛选' }}</text>
+			</view>
 			<vk-data-table-query v-model="query.formData" :columns="visibleQueryColumns" :span="4" :collapse-rows="1"
-				:collapse-default-expand="!isMobileView" @search="search">
+				:collapse-default-expand="true" @search="search">
 			<template v-slot:_add_time_range="{ form }">
 				<el-date-picker
 					v-model="form._add_time_range"
@@ -496,6 +500,7 @@
 			}
 			return {
 				isMobileView,
+				searchCardOpen: !isMobileView,
 				activeCustomerTab: 'info',
 				signingProvinceOptions,
 				showDeleted: false,
@@ -3782,6 +3787,41 @@
 
 		.page-body ::v-deep .el-table__body tr {
 			cursor: pointer;
+		}
+	}
+
+	/* 移动端筛选区折叠：外层卡片加 is-search-folded 时收起 .vk-data-table-query，PC 不受影响 */
+	.search-card-toggle {
+		display: none;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		padding: 10px;
+		margin-bottom: 6px;
+		color: #409eff;
+		background: #f5f8fc;
+		border-radius: 6px;
+		font-size: 14px;
+		cursor: pointer;
+		user-select: none;
+	}
+
+	@media screen and (max-width: 600px) {
+		.search-card-toggle {
+			display: flex;
+		}
+
+		.vk-page-search-card.is-search-folded ::v-deep .vk-data-table-query {
+			max-height: 0;
+			overflow: hidden;
+			padding: 0;
+			margin: 0;
+			transition: max-height 0.25s ease;
+		}
+
+		.vk-page-search-card ::v-deep .vk-data-table-query {
+			max-height: 2000px;
+			transition: max-height 0.25s ease;
 		}
 	}
 </style>
