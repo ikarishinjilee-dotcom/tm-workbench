@@ -18,7 +18,7 @@
       <view v-else class="message-center__empty"><i class="el-icon-bell"></i><text>暂无新消息</text></view>
     </view>
     <view slot="reference" class="message-center__trigger" title="消息提醒">
-      <el-badge :value="badgeValue" :hidden="unreadCount === 0">
+      <el-badge :value="getBadgeValue()" :hidden="getUnreadCount() <= 0">
         <vk-data-icon name="el-icon-bell" :size="20" :color="color"></vk-data-icon>
       </el-badge>
     </view>
@@ -36,13 +36,14 @@
     data() {
       return { visible: false, localMessages: [] };
     },
-    computed: {
-      // 直接从 prop 计算未读数（保证与父级数据源实时一致，避免 panel 与 trigger 显示不一致）。
-      unreadCount() {
+    methods: {
+      // 直接从 prop 每次渲染重算（不用 computed，避免 popover panel 与 trigger 渲染时机不同的缓存差异）。
+      getUnreadCount() {
         return (this.messages || []).filter((message) => !message.read).length;
       },
-      badgeValue() {
-        return this.unreadCount > 99 ? '99+' : this.unreadCount;
+      getBadgeValue() {
+        const count = this.getUnreadCount();
+        return count > 99 ? '99+' : count;
       },
     },
     watch: {
