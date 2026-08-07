@@ -1,5 +1,29 @@
 [
   {
+    "_id": "tm-home",
+    "_add_time": 1786119526567,
+    "menu_id": "tm-home",
+    "name": "首页",
+    "icon": "el-icon-s-home",
+    "url": "/pages/index/index",
+    "comment": "工作台仪表盘",
+    "sort": 1,
+    "parent_id": "",
+    "enable": true
+  },
+  {
+    "_id": "tm-customer-records",
+    "_add_time": 1786119526567,
+    "menu_id": "tm-customer-records",
+    "name": "客户信息管理",
+    "icon": "el-icon-user",
+    "url": "/pages/custom/records",
+    "comment": "客户信息管理：新增、跟进、状态流转、指派与转移",
+    "sort": 2,
+    "parent_id": "",
+    "enable": true
+  },
+  {
     "_id": "sys-admin",
     "_add_time": 1596416400000,
     "menu_id": "sys-admin",
