@@ -421,7 +421,10 @@
 	const formatCustomerFollowups = (value, row = {}) => {
 		const records = Array.isArray(row.followup_records) ? row.followup_records : [];
 		if (!records.length) return value || '';
-		return [...records].sort((a, b) => getFollowupRecordTime(b) - getFollowupRecordTime(a)).map((record, index) => {
+		// 手机端：仅展示最新一条，避免表格行高被多条进度记录撑高（保留共 N 条提示）
+		const isMobile = (typeof window !== 'undefined' && window.innerWidth) <= 600;
+		const displayRecords = isMobile ? records.slice(0, 1) : records;
+		const text = [...displayRecords].sort((a, b) => getFollowupRecordTime(b) - getFollowupRecordTime(a)).map((record, index) => {
 			const parts = [];
 			const time = formatFollowupRecordTime(record.contact_time || record.update_time || record.create_time);
 			if (time) parts.push(time);
@@ -431,6 +434,7 @@
 			const mainText = [parts.join(' '), content].filter(Boolean).join('：');
 			return `${index + 1}. ${mainText}${operator ? `（${operator}）` : ''}`;
 		}).filter(Boolean).join('\n');
+		return isMobile && records.length > 1 ? `${text}\n… 共 ${records.length} 条` : text;
 	};
 	const roleSourceScopeMap = {
 		live_teacher: ['live_teacher_zhou'],
