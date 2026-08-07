@@ -1287,6 +1287,8 @@
 							is_lead_provider: Boolean(profile.is_lead_provider),
 							visible_sources: Array.isArray(profile.visible_sources) ? profile.visible_sources : [],
 							source_options: Array.isArray(profile.source_options) ? profile.source_options : [],
+							// 全量来源（含其他角色/已冻结账号的动态直播老师），供列表 formatter 等只读渲染使用。
+							source_options_all: Array.isArray(profile.source_options_all) ? profile.source_options_all : [],
 							role_keys: Array.isArray(profile.role_keys) ? profile.role_keys : [],
 						};
 						applyCustomerStatusOptions(profile.status_options);
