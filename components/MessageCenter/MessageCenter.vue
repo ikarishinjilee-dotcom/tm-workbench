@@ -49,8 +49,8 @@
 				handler(value) {
 					const list = Array.isArray(value) ? value : [];
 					this.localMessages = list.map((message) => ({ ...message }));
-					// 同步重算未读数到 data 字段，避免 prop 在不同渲染时机造成 trigger 与 panel 数字不一致。
-					this.badgeValue = list.filter((message) => !message.read).length;
+					// 严格判断未读：read 必须不是 true（兼容历史数据中 read 可能是 undefined / null / "false" 字符串等）。
+					this.badgeValue = list.filter((message) => message.read !== true).length;
 				},
 			},
 		},
