@@ -325,6 +325,7 @@
         }).filter(Boolean);
         const normalizedLabels = roleLabels.map((label) => {
           const text = String(label);
+          if (text.includes('运营')) return '运营管理员';
           if (text.includes('管理员')) return '管理员';
           if (text.includes('直播')) return '直播老师';
           if (text.includes('投流')) return '投流老师';
