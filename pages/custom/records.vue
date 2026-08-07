@@ -3251,6 +3251,19 @@
 			padding: 8px 4px !important;
 		}
 
+		/* 进度记录：时间禁止竖排，操作者长文本换行到独立行 */
+		.followup-item__meta {
+			flex-wrap: wrap;
+		}
+		.followup-item__time {
+			white-space: nowrap;
+			flex-shrink: 0;
+		}
+		.followup-item__operator {
+			flex-basis: 100%;
+			white-space: normal;
+		}
+
 		.customer-detail-tabs {
 			padding: 0 16px;
 		}
