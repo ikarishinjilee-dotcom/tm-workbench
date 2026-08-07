@@ -153,8 +153,8 @@
       this.checkMenuTabs();
       if (this.appInitedCom) this.loadMessages();
       uni.$on('notifications-changed', this.loadMessages);
-      // 近实时消息：10 秒轻量轮询未读数 + 页面切回前台/获得焦点时立即刷新。
-      this.messageTimer = setInterval(() => this.pollUnreadCount(), 10000);
+      // 近实时消息：1 分钟轻量轮询未读数 + 页面切回前台/获得焦点时立即刷新。
+      this.messageTimer = setInterval(() => this.pollUnreadCount(), 60000);
       // #ifdef H5
       this.onVisibilityChange = () => { if (document.visibilityState === 'visible') this.loadMessages(); };
       this.onWindowFocus = () => this.loadMessages();
