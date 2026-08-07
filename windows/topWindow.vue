@@ -375,6 +375,7 @@
       roleBadgeClassCom() {
         const classMap = {
           管理员: 'user-role-badge--admin',
+          运营管理员: 'user-role-badge--operator',
           咨询师: 'user-role-badge--consultant',
           直播老师: 'user-role-badge--live',
           投流老师: 'user-role-badge--traffic',
@@ -548,6 +549,12 @@
         border-color: #f2c36b;
         background: #fff7e6;
         color: #ad6800;
+      }
+
+      .user-role-badge--operator {
+        border-color: #5cdbd3;
+        background: #e6fffb;
+        color: #08979c;
       }
 
       .user-role-badge--consultant {
