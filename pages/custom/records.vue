@@ -351,6 +351,9 @@
 		map[item.value] = item.label;
 		return map;
 	}, {});
+	const hiddenSourceValues = new Set(
+		(sourceOptions || []).filter((item) => item.enabled === false).map((item) => item.value)
+	);
 	const sourceImportValueMap = sourceOptions.reduce((map, item) => {
 		map[item.label] = item.value;
 		map[item.value] = item.value;
@@ -358,7 +361,13 @@
 	}, {});
 	// 历史兼容：早期历史客户可能保存 source='live'，前端需能渲染为"直播来源"以保证可读性。
 	sourceLabelMap.live = '直播来源';
-	const formatSourceLabel = (value) => sourceLabelMap[normalizeSourceValue(value)] || value || '';
+	const formatSourceLabel = (value) => {
+		const normalized = normalizeSourceValue(value);
+		const baseLabel = sourceLabelMap[normalized] || value || '';
+		if (!baseLabel) return '';
+		// 直播老师账号被冻结/封禁时，给来源标签追加"（已隐藏）"提示，便于识别历史来源但不再可选。
+		return hiddenSourceValues.has(normalized) ? `${baseLabel}（已隐藏）` : baseLabel;
+	};
 	const formatStatusLabel = (value) => getCustomerStatusOption(value).label || value || '';
 	const formatWechatAddedLabel = (value) => [true, 1, 'true', '1'].includes(value) ? '已加微信' : '未加微信';
 	const formatFollowupRecordTime = (value) => {

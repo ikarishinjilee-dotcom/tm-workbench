@@ -27,17 +27,24 @@
             </template>
           </el-table-column>
           <el-table-column prop="value" label="内部编码" min-width="280" />
-          <el-table-column label="类型" width="110">
+          <el-table-column label="类型" width="140">
             <template slot-scope="scope">
-              <el-tag v-if="isDynamicSource(scope.row)" type="warning" size="mini">直播账号</el-tag>
+              <el-tag v-if="isDynamicSource(scope.row)" :type="scope.row.hidden ? 'danger' : 'warning'" size="mini">{{ scope.row.hidden ? '直播账号·已隐藏' : '直播账号' }}</el-tag>
               <el-tag v-else :type="scope.row.built_in ? 'info' : 'success'" size="mini">{{ scope.row.built_in ? '内置' : '自定义' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column label="操作" width="200" fixed="right">
             <template slot-scope="scope">
-              <el-button v-if="!isDynamicSource(scope.row)" type="text" :size="$global.size" @click="editSource(scope.row)">编辑名称</el-button>
-              <el-button v-if="!isDynamicSource(scope.row) && !scope.row.built_in" type="text" :size="$global.size" class="danger-text" @click="removeSource(scope.row)">删除</el-button>
-              <span v-else-if="isDynamicSource(scope.row)" class="muted-text">账号自动</span>
+              <template v-if="!isDynamicSource(scope.row)">
+                <el-button type="text" :size="$global.size" @click="editSource(scope.row)">编辑名称</el-button>
+                <el-button v-if="!scope.row.built_in" type="text" :size="$global.size" class="danger-text" @click="removeSource(scope.row)">删除</el-button>
+              </template>
+              <template v-else-if="scope.row.hidden">
+                <el-tooltip content="该直播老师账号已冻结或封禁，该来源不再出现在客户来源下拉框中；历史客户仍保留此来源值" placement="top">
+                  <span class="muted-text">账号已冻结</span>
+                </el-tooltip>
+              </template>
+              <span v-else class="muted-text">账号自动</span>
             </template>
           </el-table-column>
         </el-table>

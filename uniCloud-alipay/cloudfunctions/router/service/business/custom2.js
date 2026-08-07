@@ -692,11 +692,15 @@ const cloudObject = {
       _id: true, username: true, nickname: true, realname: true, status: true, allow_login_background: true,
       role: true, roles: true, role_id: true, roleIds: true,
     }).limit(500).get();
+    // 直播老师账号的线索来源：保留全部（启用 + 冻结/封禁）以便审计与回溯。
+    // 冻结或封禁的账号标记 hidden=true，下拉框/管理页可选择不显示，但客户历史来源值仍可被正确显示。
     const dynamicOptions = (usersRes.data || [])
       .filter((item) => isLiveTeacherUser(item))
       .map((item) => {
         const option = getLiveTeacherSourceOption(item);
-        return option ? { ...option, enabled: item.status !== 1 && item.allow_login_background !== false } : null;
+        if (!option) return null;
+        const enabled = item.status !== 1 && item.allow_login_background !== false;
+        return { ...option, enabled, hidden: !enabled, account_id: item._id, account_status: item.status };
       })
       .filter(Boolean)
       .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
