@@ -8,7 +8,20 @@
 			<vk-data-table-query v-model="query.formData" :columns="visibleQueryColumns" :span="4" :collapse-rows="1"
 				:collapse-default-expand="true" @search="search">
 			<template v-slot:_add_time_range="{ form }">
+				<!-- 手机端：快捷时间范围按钮组（避开双月+时间面板） -->
+				<view v-if="isMobileView" class="mobile-time-presets">
+					<el-radio-group v-model="mobileTimePreset" size="small" @change="applyMobileTimePreset(form)">
+						<el-radio-button label="">不限</el-radio-button>
+						<el-radio-button label="today">今天</el-radio-button>
+						<el-radio-button label="last7">近7天</el-radio-button>
+						<el-radio-button label="last30">近30天</el-radio-button>
+						<el-radio-button label="month">本月</el-radio-button>
+						<el-radio-button label="lastMonth">上月</el-radio-button>
+					</el-radio-group>
+				</view>
+				<!-- 桌面端：保留 datetimerange 双月+时间面板 -->
 				<el-date-picker
+					v-else
 					v-model="form._add_time_range"
 					type="datetimerange"
 					range-separator="至"
@@ -501,6 +514,7 @@
 			return {
 				isMobileView,
 				searchCardOpen: !isMobileView,
+				mobileTimePreset: '',
 				activeCustomerTab: 'info',
 				signingProvinceOptions,
 				showDeleted: false,
@@ -1666,6 +1680,42 @@
 				} catch (error) {
 					return false;
 				}
+			},
+			// 手机端快捷时间范围预设：计算并写入 _add_time_range（与桌面端共用同一查询字段）
+			applyMobileTimePreset(form) {
+				const preset = this.mobileTimePreset;
+				if (!preset) {
+					form._add_time_range = null;
+					return;
+				}
+				const now = new Date();
+				const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+				const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+				let start, end;
+				if (preset === 'today') {
+					start = startOfDay(now);
+					end = endOfDay(now);
+				} else if (preset === 'last7') {
+					const s = new Date(now);
+					s.setDate(s.getDate() - 6);
+					start = startOfDay(s);
+					end = endOfDay(now);
+				} else if (preset === 'last30') {
+					const s = new Date(now);
+					s.setDate(s.getDate() - 29);
+					start = startOfDay(s);
+					end = endOfDay(now);
+				} else if (preset === 'month') {
+					const s = new Date(now.getFullYear(), now.getMonth(), 1);
+					start = startOfDay(s);
+					end = endOfDay(now);
+				} else if (preset === 'lastMonth') {
+					const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+					const e = new Date(now.getFullYear(), now.getMonth(), 0);
+					start = startOfDay(s);
+					end = endOfDay(e);
+				}
+				form._add_time_range = [start, end];
 			},
 			removeFromDetail() {
 				if (!this.canEditWorkflow) return;
@@ -3804,6 +3854,21 @@
 		font-size: 14px;
 		cursor: pointer;
 		user-select: none;
+	}
+
+	/* 手机端快捷时间范围按钮：紧凑、自动换行 */
+	.mobile-time-presets ::v-deep .el-radio-group {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+	.mobile-time-presets ::v-deep .el-radio-button {
+		margin: 0 !important;
+	}
+	.mobile-time-presets ::v-deep .el-radio-button__inner {
+		padding: 5px 8px !important;
+		font-size: 12px !important;
+		border-radius: 4px !important;
 	}
 
 	@media screen and (max-width: 600px) {
