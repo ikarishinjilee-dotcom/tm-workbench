@@ -227,16 +227,15 @@ export default {
         data: {},
         success: (result) => {
           if (result && result.code === 0) {
-            // “live”是后台权限匹配的内部通用值，不在管理页展示（动态来源由直播老师账号自动生成）。
             const dictSources = Array.isArray(result.data) ? result.data.filter((item) => item.value !== 'live') : [];
-            // 合并直播老师账号动态来源（只读展示，标记为“直播账号”）。
             const dynamicSources = Array.isArray(result.dynamic_source_options) ? result.dynamic_source_options : [];
-            // 弹窗的“来源范围”复选框也需包含动态来源，使新增直播老师时该角色可立即勾选新来源。
-            const merged = [...dynamicSources, ...dictSources]
-              .filter((item) => item.value !== 'live')
+            // 虚拟项 "全部直播账号来源"：后端识别 value='live'，权限匹配时会展开为所有可见的动态直播来源（live_teacher_*）。
+            // 前端不传给管理员手填具体账号的繁琐过程，新增直播老师后无需再改权限。
+            const virtualAllLive = { value: 'live', label: '全部直播账号来源' };
+            const merged = [virtualAllLive, ...dynamicSources, ...dictSources]
               .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
             // 给每个来源打 kind 标记，弹窗分组渲染：通用来源 vs 直播账号专属来源
-            const dynamicValueSet = new Set(dynamicSources.map((item) => item.value));
+            const dynamicValueSet = new Set([...dynamicSources.map((item) => item.value), 'live']);
             this.sourceCatalog = merged;
             this.sourceOptions = merged.map((item) => ({
               value: item.value,
