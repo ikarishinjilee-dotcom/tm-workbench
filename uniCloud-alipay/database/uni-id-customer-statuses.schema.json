@@ -40,6 +40,11 @@
       "title": "历史名称",
       "bsonType": "array",
       "items": { "bsonType": "string" }
+    },
+    "quality_level": {
+      "title": "客户质量分类",
+      "bsonType": "string",
+      "description": "高意向 high / 普通咨询 normal / 低意向 low / 无效 invalid"
     }
   },
   "version": "0.0.1"

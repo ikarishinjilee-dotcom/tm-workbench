@@ -128,6 +128,8 @@ const normalizeCustomerStatusOption = (item = {}) => ({
   enabled: item.enabled !== false,
   sort: Number(item.sort) || 0,
   aliases: Array.isArray(item.aliases) ? item.aliases.filter(Boolean) : [],
+  // 读时如果数据库里没 quality_level（历史数据），按状态 value 兜底默认等级，保证前端可正常显示与筛选。
+  quality_level: item.quality_level || defaultQualityByStatus[item.value] || 'normal',
 });
 
 // 线索来源集合名与默认数据：首次访问时由 getLeadSourceOptions 自动建表。
@@ -655,12 +657,12 @@ const cloudObject = {
       const aliases = [label];
       const enabled = data.enabled === false ? false : true;
       const sort = Number(data.sort) || Number(existing.sort) || 0;
-      await collection.doc(existing._id).update({ label, enabled, sort, aliases, _update_time: now });
-      return { code: 0, msg: '客户状态已更新', data: normalizeCustomerStatusOption({ ...existing, label, enabled, sort, aliases }) };
+      await collection.doc(existing._id).update({ label, enabled, sort, aliases, quality_level: qualityLevel, _update_time: now });
+      return { code: 0, msg: '客户状态已更新', data: normalizeCustomerStatusOption({ ...existing, label, enabled, sort, aliases, quality_level: qualityLevel }) };
     }
     const value = `custom_status_${now}_${Math.random().toString(36).slice(2, 8)}`;
     const sort = Number(data.sort) || 100;
-    const option = { value, label, built_in: false, enabled: true, sort, aliases: [label], _add_time: now, _update_time: now };
+    const option = { value, label, built_in: false, enabled: true, sort, aliases: [label], quality_level: qualityLevel, _add_time: now, _update_time: now };
     const addRes = await collection.add(option);
     return { code: 0, msg: '客户状态已新增', data: normalizeCustomerStatusOption({ ...option, _id: addRes.id }) };
   },
