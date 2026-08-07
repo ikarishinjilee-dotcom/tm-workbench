@@ -42,7 +42,7 @@
 						</view>
 					</template>
 					<template v-slot:status="{ row }">
-						<text class="customer-status-tag" :style="getStatusTagStyle(row.status)">{{ getStatusTagLabel(row.status) }}</text>
+						<status-tag :status="row.status"></status-tag>
 					</template>
 					<template v-slot:is_deleted="{ row }">
 						<el-tag v-if="row.is_deleted" type="danger" size="mini">已删除</el-tag>
@@ -549,7 +549,9 @@
 						{
 							key: 'status',
 							title: '状态',
-							width: tableWidth(150, 132)
+							type: 'text',
+							width: tableWidth(150, 132),
+							formatter: (value) => formatStatusLabel(value)
 						},
 						{
 							key: 'is_deleted',
@@ -1764,29 +1766,8 @@
 				const formatted = this.formatDetailTime(value);
 				return formatted === '未填写' ? '' : formatted.slice(11);
 			},
-			getStatusTagType(status) {
-				return getCustomerStatusOption(status).tagType || 'info';
-			},
-			getStatusTagClass(status) {
-				return getCustomerStatusOption(status).className || 'tm-status-tag--initial';
-			},
-			getStatusTagStyle(status) {
-				// 颜色配置表（避开 vk-data-table v-slot 中 scoped style 不可靠的问题，用 inline style 直接生效）。
-				const styleMap = {
-					'tm-status-tag--initial': 'background:#f2f4f7;color:#667085;border:1px solid #d9e0e8;',
-					'tm-status-tag--positive': 'background:#fff7e6;color:#b76e00;border:1px solid #f5c56b;',
-					'tm-status-tag--difficult': 'background:#fff7e6;color:#b76e00;border:1px solid #f5c56b;',
-					'tm-status-tag--refunded': 'background:#fff6ed;color:#c2611a;border:1px solid #f3c08a;',
-					'tm-status-tag--invited': 'background:#ecf5ff;color:#2878c8;border:1px solid #9ac8fa;',
-					'tm-status-tag--success': 'background:#edfff3;color:#18a058;border:1px solid #a8e5c0;',
-					'tm-status-tag--danger': 'background:#fff1f1;color:#d93025;border:1px solid #f2a7a7;',
-				};
-				const className = getCustomerStatusOption(status).className || 'tm-status-tag--initial';
-				return styleMap[className] || styleMap['tm-status-tag--initial'];
-			},
-			getStatusTagLabel(status) {
-				return getCustomerStatusOption(status).label || status || '';
-			},
+			formatWechatAddedLabel(value) {
+				return [true, 1, 'true', '1'].includes(value) ? '已加微信' : '未加微信';
 			formatWechatAddedLabel(value) {
 				return [true, 1, 'true', '1'].includes(value) ? '已加微信' : '未加微信';
 			},
@@ -3756,43 +3737,5 @@
 		.page-body ::v-deep .el-table__body tr {
 			cursor: pointer;
 		}
-	}
-
-	// 客户状态标签：列表/详情通用，按状态 className 渲染不同配色。
-	.customer-status-tag {
-		display: inline-block;
-		padding: 0 8px;
-		line-height: 20px;
-		font-size: 12px;
-		border-radius: 3px;
-		border: 1px solid transparent;
-		white-space: nowrap;
-	}
-	.customer-status-tag.tm-status-tag--initial {
-		border-color: #d9e0e8;
-		background: #f2f4f7;
-		color: #667085;
-	}
-	.customer-status-tag.tm-status-tag--positive,
-	.customer-status-tag.tm-status-tag--difficult,
-	.customer-status-tag.tm-status-tag--refunded {
-		border-color: #f5c56b;
-		background: #fff7e6;
-		color: #b76e00;
-	}
-	.customer-status-tag.tm-status-tag--invited {
-		border-color: #9ac8fa;
-		background: #ecf5ff;
-		color: #2878c8;
-	}
-	.customer-status-tag.tm-status-tag--success {
-		border-color: #a8e5c0;
-		background: #edfff3;
-		color: #18a058;
-	}
-	.customer-status-tag.tm-status-tag--danger {
-		border-color: #f2a7a7;
-		background: #fff1f1;
-		color: #d93025;
 	}
 </style>
