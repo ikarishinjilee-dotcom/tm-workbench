@@ -596,16 +596,27 @@ const cloudObject = {
       _id: true, username: true, nickname: true, realname: true, status: true,
       allow_login_background: true, role: true, roles: true, role_id: true, roleIds: true,
     }).limit(500).get();
+        // 硬编码兼容的直播来源（sourceAliasMap 中以 live_teacher_ 开头的项）也要进下拉，
+    // 避免因直播老师账号角色标识差异（如 zhibo）或账号缺失导致下拉漏项。
+    const hardcodedLiveOptions = Object.keys(sourceAliasMap)
+      .filter((key) => key.startsWith('live_teacher_'))
+      .map((key) => ({
+        value: key,
+        label: sourceAliasMap[key].find((alias) => alias.startsWith('直播（')) || key,
+        aliases: sourceAliasMap[key],
+      }));
     const allLiveSourceOptions = (sourceUsersRes.data || [])
       .filter((item) => item.status !== 1 && item.allow_login_background !== false && isLiveTeacherUser(item))
       .map(getLiveTeacherSourceOption)
       .filter(Boolean)
       .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
+    const allLiveOptionsWithHardcoded = [...hardcodedLiveOptions, ...allLiveSourceOptions]
+      .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
     // 当前用户自己的动态直播来源（如角色配了 'live' 但用户不是 live_teacher 身份，需补进下拉）
     const ownLiveSourceOption = getLiveTeacherSourceOption(currentUserInfo);
-    const allLiveOptionsWithSelf = ownLiveSourceOption && !allLiveSourceOptions.some((item) => item.value === ownLiveSourceOption.value)
-      ? [...allLiveSourceOptions, ownLiveSourceOption]
-      : allLiveSourceOptions;
+    const allLiveOptionsWithSelf = ownLiveSourceOption && !allLiveOptionsWithHardcoded.some((item) => item.value === ownLiveSourceOption.value)
+      ? [...allLiveOptionsWithHardcoded, ownLiveSourceOption]
+      : allLiveOptionsWithHardcoded;
     // 角色权限里若含 'live'（全部直播账号来源），下拉需展示该虚拟项
     const rolesForLive = normalizeRoleList(currentUserInfo);
     const hasLiveVirtual = rolesForLive.some((role) => role && Array.isArray(role.lead_sources) && role.lead_sources.includes('live'));
@@ -623,7 +634,7 @@ const cloudObject = {
       ...(liveVirtualOption ? [liveVirtualOption] : []),
       ...defaultSourceOptions,
       ...configuredSourceOptions,
-      ...allLiveOptionsWithSelf,
+      ...allLiveOptionsWithHardcoded,
     ].filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
     const sourceOptions = admin
       ? mergedSourceOptions
