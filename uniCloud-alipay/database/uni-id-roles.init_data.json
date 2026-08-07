@@ -37,30 +37,30 @@
     "menu": []
   },
   {
-    "_id": "zhibo",
+    "_id": "live_teacher",
     "_add_time": 1786119526567,
     "enable": true,
-    "role_id": "zhibo",
+    "role_id": "live_teacher",
     "role_name": "直播老师",
     "comment": "直播老师",
     "permission": [],
     "menu": ["tm-home", "tm-customer-records"]
   },
   {
-    "_id": "touliu",
+    "_id": "traffic_teacher",
     "_add_time": 1786119526567,
     "enable": true,
-    "role_id": "touliu",
+    "role_id": "traffic_teacher",
     "role_name": "投流老师",
     "comment": "投流/引流老师",
     "permission": [],
     "menu": ["tm-home", "tm-customer-records"]
   },
   {
-    "_id": "zixunshi",
+    "_id": "consultant",
     "_add_time": 1786119526567,
     "enable": true,
-    "role_id": "zixunshi",
+    "role_id": "consultant",
     "role_name": "咨询师",
     "comment": "咨询师",
     "permission": [],
