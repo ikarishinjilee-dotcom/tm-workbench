@@ -1268,7 +1268,6 @@
 							is_lead_provider: Boolean(profile.is_lead_provider),
 							visible_sources: Array.isArray(profile.visible_sources) ? profile.visible_sources : [],
 							source_options: Array.isArray(profile.source_options) ? profile.source_options : [],
-							source_options: Array.isArray(profile.source_options) ? profile.source_options : [],
 							role_keys: Array.isArray(profile.role_keys) ? profile.role_keys : [],
 						};
 						applyCustomerStatusOptions(profile.status_options);

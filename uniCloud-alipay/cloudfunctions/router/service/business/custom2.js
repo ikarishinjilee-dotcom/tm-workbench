@@ -578,6 +578,13 @@ const cloudObject = {
     const sourceOptions = admin
       ? mergedSourceOptions
       : mergedSourceOptions.filter((item) => (item.aliases || [item.value]).some((alias) => visibleSources.includes(alias)));
+    // 客户状态字典：管理员配置页可读全部状态，其他角色只读启用状态。
+    let configuredCustomerStatusOptions = [];
+    try {
+      configuredCustomerStatusOptions = await getCustomerStatusOptions(uniCloud.database(), isSuperAdmin(currentUserInfo));
+    } catch (error) {
+      configuredCustomerStatusOptions = customerStatusOptions.map(normalizeCustomerStatusOption);
+    }
     return {
       code: 0,
       data: {
