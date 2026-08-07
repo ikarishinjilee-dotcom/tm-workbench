@@ -1768,8 +1768,6 @@
 			},
 			formatWechatAddedLabel(value) {
 				return [true, 1, 'true', '1'].includes(value) ? '已加微信' : '未加微信';
-			formatWechatAddedLabel(value) {
-				return [true, 1, 'true', '1'].includes(value) ? '已加微信' : '未加微信';
 			},
 			formatSourceLabel(value) {
 				const normalized = normalizeSourceValue(value);
