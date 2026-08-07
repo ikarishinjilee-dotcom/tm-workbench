@@ -610,8 +610,17 @@ const cloudObject = {
       .map(getLiveTeacherSourceOption)
       .filter(Boolean)
       .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
-    const allLiveOptionsWithHardcoded = [...hardcodedLiveOptions, ...allLiveSourceOptions]
-      .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
+    // 合并硬编码与动态账号项，按"直播（xxx）"中文别名去重（动态优先，含 uid 信息更全；hardcoded 作为账号缺失时的兜底）
+    const liveSeenLabels = new Set();
+    const allLiveOptionsWithHardcoded = [...allLiveSourceOptions, ...hardcodedLiveOptions]
+      .filter((item) => {
+        const chineseLabel = (item.aliases || []).find((alias) => /^直播（.+）$/.test(alias));
+        if (chineseLabel) {
+          if (liveSeenLabels.has(chineseLabel)) return false;
+          liveSeenLabels.add(chineseLabel);
+        }
+        return true;
+      });
     // 当前用户自己的动态直播来源（如角色配了 'live' 但用户不是 live_teacher 身份，需补进下拉）
     const ownLiveSourceOption = getLiveTeacherSourceOption(currentUserInfo);
     const allLiveOptionsWithSelf = ownLiveSourceOption && !allLiveOptionsWithHardcoded.some((item) => item.value === ownLiveSourceOption.value)
