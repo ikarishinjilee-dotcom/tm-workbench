@@ -54,6 +54,30 @@ const cloudObject = {
     };
   },
 
+  getUnreadCount: async function () {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    if (!uid) return { code: -1, msg: '请先登录' };
+    const db = uniCloud.database();
+    const roleValues = [userInfo.role, userInfo.roles, userInfo.role_id, userInfo.roleIds]
+      .flatMap((value) => Array.isArray(value) ? value : [value])
+      .map((value) => typeof value === 'object' && value ? value.role_id || value.value || value.name : value)
+      .filter(Boolean)
+      .map((value) => String(value));
+    const notificationWhere = { recipient_id: uid, read: false };
+    if (roleValues.includes('admin')) {
+      notificationWhere.type = db.command.in([
+        'customer_distribution',
+        'customer_redispatch',
+        'customer_transfer',
+        'customer_followup_key_event',
+      ]);
+    }
+    const unreadResult = await db.collection('tm-notifications')
+      .where(notificationWhere)
+      .count();
+    return { code: 0, unread_count: unreadResult.total || 0 };
+  },
+
   markRead: async function (data = {}) {
     const { uid } = this.getClientInfo();
     const { notification_id } = data;

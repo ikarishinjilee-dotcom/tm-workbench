@@ -142,6 +142,8 @@
         formDatas: {},
         // 统一消息入口，后续由消息服务填充具体消息。
         messageMessages: [],
+        // 最近一次服务端未读数，用于判断是否需要刷新全量列表。
+        lastUnreadCount: -1,
       };
     },
     // 组件挂载完毕时
@@ -151,11 +153,22 @@
       this.checkMenuTabs();
       if (this.appInitedCom) this.loadMessages();
       uni.$on('notifications-changed', this.loadMessages);
-      this.messageTimer = setInterval(() => this.loadMessages(), 60000);
+      // 近实时消息：10 秒轻量轮询未读数 + 页面切回前台/获得焦点时立即刷新。
+      this.messageTimer = setInterval(() => this.pollUnreadCount(), 10000);
+      // #ifdef H5
+      this.onVisibilityChange = () => { if (document.visibilityState === 'visible') this.loadMessages(); };
+      this.onWindowFocus = () => this.loadMessages();
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+      window.addEventListener('focus', this.onWindowFocus);
+      // #endif
     },
     beforeDestroy() {
       if (this.messageTimer) clearInterval(this.messageTimer);
       uni.$off('notifications-changed', this.loadMessages);
+      // #ifdef H5
+      if (this.onVisibilityChange) document.removeEventListener('visibilitychange', this.onVisibilityChange);
+      if (this.onWindowFocus) window.removeEventListener('focus', this.onWindowFocus);
+      // #endif
     },
     methods: {
       // 跳转登录页
@@ -206,6 +219,22 @@
           data: { page_size: 50 },
           success: (result) => {
             this.messageMessages = Array.isArray(result && result.rows) ? result.rows : [];
+          },
+        });
+      },
+      // 轻量轮询：只查未读数，与本地不同时才刷新全量列表（10 秒一次，开销极小）。
+      pollUnreadCount() {
+        if (!this.isLoginCom) return;
+        this.vk.callFunction({
+          url: 'business/notifications.getUnreadCount',
+          data: {},
+          success: (result) => {
+            if (!result || result.code !== 0) return;
+            const unreadCount = Number(result.unread_count) || 0;
+            if (unreadCount !== this.lastUnreadCount) {
+              this.lastUnreadCount = unreadCount;
+              this.loadMessages();
+            }
           },
         });
       },
