@@ -627,8 +627,8 @@ const cloudObject = {
     ].filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
     const sourceOptions = admin
       ? mergedSourceOptions
-      : mergedSourceOptions.filter((item) => (item.aliases || [item.value]).some((alias) => visibleSources.includes(alias)));
-    // 非 admin：若角色权限配了 'live'，下拉需保留"全部直播账号来源"虚拟项（filter 不匹配它）
+      : mergedSourceOptions.filter((item) => item.value !== 'live');
+    // 非 admin：若角色权限配了 'live'，下拉展示该虚拟项（merge 时已默认包含，这里再次兜底）
     if (!admin && liveVirtualOption && !sourceOptions.some((item) => item.value === 'live')) {
       sourceOptions.unshift(liveVirtualOption);
     }
