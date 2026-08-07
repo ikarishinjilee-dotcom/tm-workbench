@@ -320,7 +320,10 @@ const getLeadProviderVisibleSources = (userInfo = {}) => {
       }
     });
   });
-  if (hasConfiguredSourceScope) return Array.from(new Set(sources.flatMap((source) => getSourceAliases(source))));
+  if (hasConfiguredSourceScope) {
+    const visible = Array.from(new Set(sources.flatMap((source) => getSourceAliases(source))));
+    return restrictLiveTeacherToOwnSource(visible, userInfo);
+  }
   const identityValues = [
     userInfo.username,
     userInfo.nickname,
@@ -333,7 +336,16 @@ const getLeadProviderVisibleSources = (userInfo = {}) => {
     }
   });
   if (isLiveTeacherUser(userInfo)) sources.push(...getLiveTeacherSourceAliases(userInfo));
-  return Array.from(new Set(sources.flatMap((source) => getSourceAliases(source))));
+  return restrictLiveTeacherToOwnSource(Array.from(new Set(sources.flatMap((source) => getSourceAliases(source)))), userInfo);
+};
+// 直播老师账号硬性收窄：无论角色如何配置，只能看到“属于自己账号”的动态直播来源（live_teacher_${uid}），
+// 其他直播老师账号的来源（如 live_teacher_周uid / 直播（周老师））一律排除，避免串数据。
+const restrictLiveTeacherToOwnSource = (sources, userInfo) => {
+  if (!Array.isArray(sources) || !isLiveTeacherUser(userInfo)) return sources;
+  const ownAliases = getLiveTeacherSourceAliases(userInfo);
+  const isLiveDynamicValue = (source) => String(source).startsWith('live_teacher_') || /^直播（.+）$/.test(String(source));
+  const filtered = sources.filter((source) => !isLiveDynamicValue(source) || ownAliases.includes(source));
+  return Array.from(new Set(filtered));
 };
 const isLeadProviderUser = (userInfo = {}) => !isSuperAdmin(userInfo) && getLeadProviderVisibleSources(userInfo).length > 0;
 const isConsultantCandidate = (userInfo = {}) => !isSuperAdmin(userInfo) && !isLeadProviderUser(userInfo);
