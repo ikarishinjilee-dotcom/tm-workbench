@@ -563,15 +563,17 @@ const cloudObject = {
       .map(getLiveTeacherSourceOption)
       .filter(Boolean)
       .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
-    // 字典来源（含内置与自定义）与直播老师动态来源合并，确保前端下拉框能匹配客户已使用的所有来源值。
-    // 集合未部署时兜底返回默认来源，不阻断 getAccessProfile 接口。
+    // 字典来源（默认项兜底 + 字典表）与直播老师动态来源合并，确保前端下拉框能匹配客户已使用的所有来源值。
+    // 默认来源始终存在（即使字典表为空），字典项按 value 去重追加。
     let configuredSourceOptions = [];
     try {
       configuredSourceOptions = await getLeadSourceOptions(uniCloud.database());
     } catch (error) {
       configuredSourceOptions = defaultLeadSourceOptions.map(normalizeLeadSourceOption);
     }
+    const defaultSourceOptions = defaultLeadSourceOptions.map(normalizeLeadSourceOption);
     const mergedSourceOptions = [
+      ...defaultSourceOptions,
       ...configuredSourceOptions,
       ...allLiveSourceOptions,
     ].filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
