@@ -179,10 +179,10 @@
     width: 100%;
     height: 100vh;
     background:
-      radial-gradient(circle at 18% 22%, rgba(255, 113, 154, 0.35), transparent 55%),
-      radial-gradient(circle at 82% 58%, rgba(99, 102, 241, 0.35), transparent 55%),
-      radial-gradient(circle at 50% 95%, rgba(45, 212, 191, 0.22), transparent 55%),
-      linear-gradient(135deg, #1a0b3d, #3a0f7a, #8e1d8a, #d33682, #f97316, #d33682, #8e1d8a, #3a0f7a, #1a0b3d);
+      radial-gradient(circle at 18% 22%, rgba(34, 211, 238, 0.32), transparent 55%),
+      radial-gradient(circle at 82% 58%, rgba(99, 102, 241, 0.28), transparent 55%),
+      radial-gradient(circle at 50% 95%, rgba(16, 185, 129, 0.22), transparent 55%),
+      linear-gradient(135deg, #020617, #0c4a6e, #155e75, #0891b2, #22d3ee, #0891b2, #155e75, #0c4a6e, #020617);
     background-size: 100% 100%, 100% 100%, 100% 100%, 400% 400%;
     animation: gradientFlow 16s ease-in-out infinite;
     display: flex;
