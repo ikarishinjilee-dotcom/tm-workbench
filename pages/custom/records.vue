@@ -3255,8 +3255,10 @@
 			border-top: 1px solid #e8edf3;
 		}
 
-		.customer-detail-summary__item.is-wide {
+		.customer-detail-summary__item.is-wide,
+		.customer-detail-summary__item--time {
 			grid-column: span 2;
+			border-right: 0;
 		}
 
 		.customer-detail-fields {
