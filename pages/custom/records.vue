@@ -135,7 +135,7 @@
 						</view>
 						<view class="signing-field">
 							<view class="signing-field__label">合同金额</view>
-							<el-input v-model="form.data.contract_amount" :disabled="!canEditWorkflow || !isSigningEditable(form.data)" placeholder="请输入合同金额"></el-input>
+							<el-input v-model="form.data.contract_amount" :disabled="!canEditWorkflow || !isSigningEditable(form.data)" placeholder="请输入合同金额" @input="filterContractAmount"></el-input>
 						</view>
 						<view class="signing-field signing-field--full">
 							<view class="signing-field__label">合同主要内容</view>
@@ -1768,6 +1768,18 @@
 			},
 			formatWechatAddedLabel(value) {
 				return [true, 1, 'true', '1'].includes(value) ? '已加微信' : '未加微信';
+			},
+			// 合同金额只能输入数字（允许小数，最多 2 位小数）。
+			filterContractAmount(value) {
+				if (value === '' || value === null || value === undefined) {
+					this.$set(this.form.data, 'contract_amount', '');
+					return;
+				}
+				const cleaned = String(value).replace(/[^\d.]/g, '')
+					.replace(/^\./, '0.')
+					.replace(/\.(?=.*\.)/g, '')
+					.replace(/^(\d*\.\d{0,2}).*$/, '$1');
+				if (cleaned !== value) this.$set(this.form.data, 'contract_amount', cleaned);
 			},
 			formatSourceLabel(value) {
 				const normalized = normalizeSourceValue(value);
