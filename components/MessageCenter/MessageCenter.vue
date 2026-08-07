@@ -3,7 +3,7 @@
 		<view class="message-center__panel">
 			<view class="message-center__panel-header">
 				<text class="message-center__panel-title">消息中心</text>
-				<el-button v-if="getUnreadCount() > 0" type="text" size="mini" @click="markAllRead">全部已读</el-button>
+				<el-button v-if="badgeValue > 0" type="text" size="mini" @click="markAllRead">全部已读</el-button>
 			</view>
 			<view v-if="localMessages.length" class="message-center__list">
 				<view v-for="message in localMessages" :key="message._id || message.id" class="message-center__item" :class="{ 'is-unread': !message.read }" @click="handleMessageClick(message)">
@@ -18,7 +18,7 @@
 			<view v-else class="message-center__empty"><i class="el-icon-bell"></i><text>暂无新消息</text></view>
 		</view>
 		<view slot="reference" class="message-center__trigger" title="消息提醒">
-			<el-badge :value="getBadgeValue()" :hidden="getUnreadCount() <= 0">
+			<el-badge :value="badgeDisplay" :hidden="badgeValue <= 0">
 				<vk-data-icon name="el-icon-bell" :size="20" :color="color"></vk-data-icon>
 			</el-badge>
 		</view>
@@ -34,24 +34,36 @@
 			color: { type: String, default: '#999' },
 		},
 		data() {
-			return { visible: false, localMessages: [] };
+			// badgeValue 直接存在 data 上，watch prop 时同步重算——保证 trigger 与 panel 渲染时始终是同一个值。
+			return { visible: false, localMessages: [], badgeValue: 0 };
+		},
+		computed: {
+			badgeDisplay() {
+				return this.badgeValue > 99 ? '99+' : this.badgeValue;
+			},
+		},
+		watch: {
+			messages: {
+				immediate: true,
+				deep: true,
+				handler(value) {
+					const list = Array.isArray(value) ? value : [];
+					this.localMessages = list.map((message) => ({ ...message }));
+					// 同步重算未读数到 data 字段，避免 prop 在不同渲染时机造成 trigger 与 panel 数字不一致。
+					this.badgeValue = list.filter((message) => !message.read).length;
+				},
+			},
 		},
 		methods: {
-			// 直接从 prop 每次渲染重算（不用 computed，避免 popover panel 与 trigger 渲染时机不同的缓存差异）。
-			getUnreadCount() {
-				return (this.messages || []).filter((message) => !message.read).length;
-			},
-			getBadgeValue() {
-				const count = this.getUnreadCount();
-				return count > 99 ? '99+' : count;
-			},
 			handleMessageClick(message) {
 				const target = this.localMessages.find((item) => (item._id || item.id) === (message._id || message.id));
 				if (target) target.read = true;
+				this.badgeValue = Math.max(0, this.badgeValue - 1);
 				this.$emit('message-click', message);
 			},
 			markAllRead() {
 				this.localMessages = this.localMessages.map((message) => ({ ...message, read: true }));
+				this.badgeValue = 0;
 				this.$emit('mark-all-read');
 			},
 			formatTime(value) {
@@ -60,15 +72,6 @@
 				if (Number.isNaN(date.getTime())) return value;
 				const pad = (number) => String(number).padStart(2, '0');
 				return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-			},
-		},
-		watch: {
-			messages: {
-				immediate: true,
-				deep: true,
-				handler(value) {
-					this.localMessages = (Array.isArray(value) ? value : []).map((message) => ({ ...message }));
-				},
 			},
 		},
 	};
