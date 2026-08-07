@@ -110,5 +110,30 @@ text {
   .el-date-editor--datetimerange.el-input__inner {
     width: 100% !important;
   }
+  /* 弹层宽度兜底：日期/时间/选择器下拉收窄到视口内，避免手机溢出 */
+  .el-picker-panel,
+  .el-date-picker,
+  .el-time-picker,
+  .el-select-dropdown,
+  .el-cascader__dropdown,
+  .el-autocomplete-suggestion__wrap {
+    max-width: calc(100vw - 16px) !important;
+  }
+  .el-picker-panel .el-picker-panel__body,
+  .el-picker-panel .el-date-table-wrap {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .el-picker-panel .el-date-table {
+    width: 100% !important;
+  }
+  /* 双月日期范围选择器在手机上只显示单月（540px 双月超出 430px 屏幕） */
+  .el-date-range-picker .el-picker-panel__body + .el-picker-panel__body {
+    display: none !important;
+  }
+  .el-date-range-picker__time-header,
+  .el-date-range-picker__header {
+    padding: 8px !important;
+  }
 }
 /* ================= 移动端全局适配 - 结束 ================= */
