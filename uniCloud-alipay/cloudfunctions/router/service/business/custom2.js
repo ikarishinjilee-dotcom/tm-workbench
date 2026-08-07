@@ -654,7 +654,7 @@ const cloudObject = {
       code: 0,
       data: {
         is_admin: admin,
-        is_lead_provider: !admin && visibleSources.length > 0,
+        is_lead_provider: !admin && isLeadProviderUser(currentUserInfo),
         visible_sources: visibleSources,
         // 当前用户实际可选的来源（受角色权限过滤）。用于下拉框与表单选择。
         source_options: sourceOptions,
