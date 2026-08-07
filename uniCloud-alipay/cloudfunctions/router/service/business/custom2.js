@@ -278,6 +278,8 @@ const isLiveTeacherUser = (userInfo = {}) => {
   return /直播|主播|live_teacher|zhibo/i.test(text);
 };
 const getLiveTeacherSourceOption = (userInfo = {}) => {
+  // 仅真正的直播老师用户才有专属动态来源项；普通咨询师/其他角色不应出现"直播（xxx）"混淆。
+  if (!isLiveTeacherUser(userInfo)) return null;
   const aliases = getLiveTeacherSourceAliases(userInfo);
   const value = aliases.find((item) => item.startsWith('live_teacher_')) || '';
   const label = aliases.find((item) => item.startsWith('直播（')) || '';
