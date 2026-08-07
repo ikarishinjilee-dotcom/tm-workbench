@@ -4,8 +4,8 @@
     <div class="left">
       <!-- 模式一：纯图片 -->
       <navigator class="logo-mode-1" open-type="reLaunch" url="/" v-if="mode === 1">
-        <image :src="logo1Com" mode="aspectFill" class="logo-image" v-show="leftCollapseCom"></image>
-        <image :src="logo2Com" mode="aspectFill" class="logo-image" v-show="!leftCollapseCom"></image>
+        <image :src="logo1Com" mode="aspectFit" class="logo-image" v-show="leftCollapseCom"></image>
+        <image :src="logo2Com" mode="aspectFit" class="logo-image" v-show="!leftCollapseCom"></image>
       </navigator>
 
       <!-- 模式二：图片+文字 -->
@@ -671,10 +671,8 @@
 
       .logo-image {
         height: 32px;
-        width: auto;
-        max-width: 180px;
+        width: 180px;
         display: block;
-        object-fit: contain;
       }
     }
 
