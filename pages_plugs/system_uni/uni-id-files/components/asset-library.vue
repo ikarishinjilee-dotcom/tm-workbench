@@ -2561,4 +2561,26 @@
       width: 260px;
     }
   }
+
+  /* 移动端：左侧筛选栏折叠为全宽顶部，文件网格单列 */
+  @media screen and (max-width: 768px) {
+    .asset-library-page {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .filter-box,
+    .filter-box * {
+      width: 100% !important;
+    }
+
+    .file-grid:not(.list-mode) {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    ::v-deep .el-dialog {
+      width: calc(100vw - 20px) !important;
+    }
+  }
 </style>
