@@ -32,9 +32,9 @@
     "enable": true,
     "role_id": "operator",
     "role_name": "运营管理员",
-    "comment": "普通管理员：可登录后台，按绑定权限运营业务数据，不含系统级管理能力",
+    "comment": "普通管理员：客户管理权限与超管一致，不含系统级账号管理能力",
     "permission": [],
-    "menu": []
+    "menu": ["tm-home", "tm-customer-records", "tm-customer-status", "tm-lead-source"]
   },
   {
     "_id": "live_teacher",

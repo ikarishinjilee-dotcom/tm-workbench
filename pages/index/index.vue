@@ -348,7 +348,8 @@
         });
       },
       isAdmin() {
-        return this.userRoles.includes('admin');
+        // 超管与运营管理员 operator 在首页看到一致的全量数据视图
+        return this.userRoles.some((role) => ['admin', 'super_admin', 'administrator', 'operator'].includes(String(role)));
       },
       dashboardSubtitle() {
         return this.isAdmin

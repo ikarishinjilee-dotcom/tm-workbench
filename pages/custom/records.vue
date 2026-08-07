@@ -290,7 +290,8 @@
 	let vk = uni.vk;
 	const statusOptions = customerStatusOptions;
 	const postConvertedStatusValues = ['converted', 'refunded'];
-	const adminRoleKeys = ['admin', 'super_admin', 'administrator'];
+	// 运营管理员 operator 在客户管理上与超管一致
+	const adminRoleKeys = ['admin', 'super_admin', 'administrator', 'operator'];
 	const importHeaderFieldMap = {
 		'家长姓名': 'parent_name',
 		'姓名': 'parent_name',

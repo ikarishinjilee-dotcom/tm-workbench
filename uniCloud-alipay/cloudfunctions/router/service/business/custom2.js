@@ -1,7 +1,7 @@
 'use strict';
 
-// 角色信息可能来自数组、字符串或角色对象，统一识别超级管理员。
-const adminRoleKeys = ['admin', 'super_admin', 'administrator'];
+// 角色信息可能来自数组、字符串或角色对象，统一识别超级管理员（含运营管理员 operator：客户管理权限与超管一致）。
+const adminRoleKeys = ['admin', 'super_admin', 'administrator', 'operator'];
 const isSuperAdmin = (userInfo = {}) => {
   let roleValue = userInfo.role || userInfo.roles || userInfo.role_id || userInfo.roleIds || [];
   if (typeof roleValue === 'string') {
