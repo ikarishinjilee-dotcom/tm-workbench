@@ -372,11 +372,13 @@ const isLeadProviderUser = (userInfo = {}) => {
   return /直播|主播|投流|zhibo|touliu|live_teacher|traffic_teacher/i.test(identityText);
 };
 const isConsultantCandidate = (userInfo = {}) => {
+  // 必须是"明确绑定咨询师角色"的账号才能作为客户归属人（分配/转移目标）。
+  // 无角色、admin/operator/直播/投流等角色一律不算咨询师。
   if (isSuperAdmin(userInfo)) return false;
   if (isLeadProviderUser(userInfo)) return false;
-  // 运营管理员（operator）是后台管理人员，不属于咨询师，不能被分配/转移客户
-  if (normalizeRoleKeys(userInfo).includes('operator')) return false;
-  return true;
+  const roleKeys = normalizeRoleKeys(userInfo);
+  if (roleKeys.includes('operator')) return false;
+  return roleKeys.some((role) => ['consultant', '咨询师', 'zixunshi', 'sales', 'counselor'].includes(role));
 };
 const applyCustomerAccessWhere = ({ whereJson = {}, userInfo = {}, uid, admin, _ }) => {
   if (admin) return whereJson;
