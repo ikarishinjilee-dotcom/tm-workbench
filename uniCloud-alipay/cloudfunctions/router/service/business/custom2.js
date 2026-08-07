@@ -133,7 +133,7 @@ const normalizeCustomerStatusOption = (item = {}) => ({
 });
 
 // 线索来源集合名与默认数据：首次访问时由 getLeadSourceOptions 自动建表。
-const leadSourceCollectionName = 'uni-id-lead-sources';
+const leadSourceCollectionName = 'tm-lead-sources';
 const defaultLeadSourceOptions = [
   { value: 'wechat_channels_promotion', label: '视频号线索', built_in: true, sort: 20 },
   { value: 'douyin_promotion', label: '抖音线索', built_in: true, sort: 30 },
@@ -170,7 +170,7 @@ const getCustomerStatusOptions = async (db, includeDisabled = true) => {
   return includeDisabled ? options : options.filter((item) => item.enabled !== false);
 };
 
-const customerStatusCollectionName = 'uni-id-customer-statuses';
+const customerStatusCollectionName = 'tm-customer-statuses';
 const defaultCustomerStatusOptions = customerStatusOptions.map((item, index) => ({
   ...item,
   quality_level: defaultQualityByStatus[item.value] || 'normal',
