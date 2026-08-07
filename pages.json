@@ -37,6 +37,8 @@
         { "path": "system/user/list" },
         { "path": "system/role/list" },
         { "path": "system/permission/list" },
+        { "path": "system/lead/list", "style": { "navigationBarTitleText": "线索管理" } },
+        { "path": "system/customer-status/list", "style": { "navigationBarTitleText": "客户状态管理" } },
         { "path": "system/menu/list" },
         { "path": "system/app/list" },
         { "path": "system/app-upgrade-center/list" },

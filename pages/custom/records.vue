@@ -2,7 +2,20 @@
 	<view class="page-body">
 		<view class="vk-page-card vk-page-search-card">
 			<vk-data-table-query v-model="query.formData" :columns="visibleQueryColumns" :span="4" :collapse-rows="1"
-				:collapse-default-expand="true" @search="search"></vk-data-table-query>
+				:collapse-default-expand="true" @search="search">
+			<template v-slot:_add_time_range="{ form }">
+				<el-date-picker
+					v-model="form._add_time_range"
+					type="datetimerange"
+					range-separator="至"
+					start-placeholder="开始时间"
+					end-placeholder="结束时间"
+					value-format="timestamp"
+					:picker-options="createdTimePickerOptions"
+					class="customer-created-time-range"
+				></el-date-picker>
+			</template>
+			</vk-data-table-query>
 		</view>
 
 		<view class="vk-page-card">
@@ -143,8 +156,8 @@
 				</view>
 			</view>
 			<view class="customer-profile-footer">
-				<el-button @click="closeCustomerDialog">关闭</el-button>
-				<el-button type="primary" @click="submitCustomerDialog">确定</el-button>
+				<el-button :disabled="form.submitting" @click="closeCustomerDialog">关闭</el-button>
+				<el-button type="primary" :loading="form.submitting" :disabled="form.submitting" @click="submitCustomerDialog">确定</el-button>
 			</view>
 		</vk-data-dialog>
 
@@ -267,7 +280,7 @@
 <script>
 	import StatusTag from '@/components/StatusTag.vue';
 	import CustomerFileGrid from '@/components/CustomerFileGrid.vue';
-	import { customerStatusOptions, normalizeCustomerStatus, getCustomerStatusOption } from '@/common/customer-status.js';
+	import { customerStatusOptions, normalizeCustomerStatus, getCustomerStatusOption, applyCustomerStatusOptions } from '@/common/customer-status.js';
 	let vk = uni.vk;
 	const statusOptions = customerStatusOptions;
 	const postConvertedStatusValues = ['converted', 'refunded'];
@@ -320,7 +333,7 @@
 		{ value: 'douyin_promotion', label: '抖音线索' },
 		{ value: 'old_customer', label: '老客户' },
 		{ value: 'customer_referral', label: '客户转介绍' },
-		{ value: 'other', label: '其他' }
+		{ value: 'other', label: '其他来源' }
 	];
 	const paidSourceValues = ['wechat_channels_promotion', 'douyin_promotion'];
 	const legacySourceValueMap = {
@@ -458,6 +471,8 @@
 					is_admin: false,
 					is_lead_provider: false,
 					visible_sources: [],
+					source_options: [],
+					source_options: [],
 					role_keys: [],
 				},
 				consultantOptions: [],
@@ -465,6 +480,8 @@
 				importingCustomers: false,
 				routeCustomerId: '',
 				routeAddOpened: false,
+				routeSource: '',
+				routeSource: '',
 				detail: {
 					show: false,
 					data: {},
@@ -531,7 +548,7 @@
 							title: '线索来源',
 							type: 'text',
 							width: tableWidth(130, 100),
-							formatter: (value) => formatSourceLabel(value)
+							formatter: (value) => this.formatSourceLabel(value)
 						},
 						{
 							key: 'clue_cost',
@@ -648,7 +665,7 @@
 							key: 'parent_name',
 							title: '家长姓名',
 							type: 'text',
-							placeholder: '请输入家长姓名',
+							placeholder: '请输入家长姓名、孩子姓名或联系电话',
 							mode: '%%'
 						},
 						{
@@ -666,34 +683,20 @@
 							mode: '%%'
 						},
 						{
-							key: '_add_time_start',
-							title: '创建时间',
-							type: 'date',
-							span: 3,
-							minWidth: 240,
-							placeholder: '开始日期',
-							mode: '>=',
-							fieldName: '_add_time',
-							valueFormat: 'yyyy-MM-dd'
-						},
-						{
-							key: '_add_time_end',
-							title: '至',
-							type: 'date',
-							span: 3,
-							minWidth: 240,
-							placeholder: '结束日期',
-							mode: '<=',
-							fieldName: '_add_time',
-							valueFormat: 'yyyy-MM-dd'
-						},
-						{
 							key: 'status',
 							title: '状态',
 							type: 'select',
 							placeholder: '请选择状态',
 							mode: '==',
 							data: statusOptions
+						},
+						{
+							key: '_add_time_range',
+							title: '创建时间',
+							type: 'daterange',
+							placeholder: '选择创建时间范围',
+							mode: '[]',
+							valueFormat: 'yyyy-MM-dd HH:mm:ss'
 						},
 						{
 							key: 'source',
@@ -735,6 +738,7 @@
 					type: 'add',
 					action: 'business/custom2.save',
 					data: {},
+					submitting: false,
 					skipConvertedStatusPrompt: false,
 					convertedStatusConfirmed: false,
 					rules: {
@@ -967,6 +971,64 @@
 			};
 		},
 		computed: {
+			createdTimePickerOptions() {
+				const startOfDay = (date) => {
+					const value = new Date(date);
+					value.setHours(0, 0, 0, 0);
+					return value;
+				};
+				const endOfDay = (date) => {
+					const value = new Date(date);
+					value.setHours(23, 59, 59, 999);
+					return value;
+				};
+				const shiftDay = (date, offset) => {
+					const value = new Date(date);
+					value.setDate(value.getDate() + offset);
+					return value;
+				};
+				const getWeekStart = (date) => {
+					const value = startOfDay(date);
+					const day = value.getDay() || 7;
+					value.setDate(value.getDate() - day + 1);
+					return value;
+				};
+				const getMonthStart = (date) => {
+					const value = startOfDay(date);
+					value.setDate(1);
+					return value;
+				};
+				const getYearStart = (date) => {
+					const value = startOfDay(date);
+					value.setMonth(0, 1);
+					return value;
+				};
+				const rangeShortcut = (text, getRange) => ({
+					text,
+					onClick(picker) {
+						const range = getRange(new Date());
+						picker.$emit('pick', range);
+					},
+				});
+				return {
+					shortcuts: [
+						rangeShortcut('今日-上午', (now) => [startOfDay(now), new Date(new Date(now).setHours(11, 59, 59, 999))]),
+						rangeShortcut('今日-下午', (now) => [new Date(new Date(now).setHours(12, 0, 0, 0)), endOfDay(now)]),
+						rangeShortcut('今日', (now) => [startOfDay(now), endOfDay(now)]),
+						rangeShortcut('本周', (now) => [getWeekStart(now), endOfDay(now)]),
+						rangeShortcut('本月', (now) => [getMonthStart(now), endOfDay(now)]),
+						rangeShortcut('昨日', (now) => [startOfDay(shiftDay(now, -1)), endOfDay(shiftDay(now, -1))]),
+						rangeShortcut('上周', (now) => [shiftDay(getWeekStart(now), -7), endOfDay(shiftDay(getWeekStart(now), -1))]),
+						rangeShortcut('上月', (now) => {
+							const currentMonth = getMonthStart(now);
+							const previousMonth = new Date(currentMonth);
+							previousMonth.setMonth(previousMonth.getMonth() - 1);
+							return [previousMonth, endOfDay(new Date(currentMonth.getTime() - 1))];
+						}),
+						rangeShortcut('本年', (now) => [getYearStart(now), endOfDay(now)]),
+					],
+				};
+			},
 			visibleQueryColumns() {
 				return this.query.columns
 					.filter((column) => this.canViewConsultantFilter || column.key !== 'consultant_id')
@@ -1001,8 +1063,16 @@
 				if (this.accessProfile.loaded) return Boolean(this.accessProfile.is_admin);
 				return this.userRoles.some((role) => adminRoleKeys.includes(role));
 			},
+			currentLiveTeacherSourceOption() {
+				const userInfo = (this.$store && this.$store.state && this.$store.state.$user && this.$store.state.$user.userInfo) || {};
+				const isLiveTeacher = this.userRoles.some((role) => ['live_teacher', 'zhibo', '直播老师'].some((keyword) => String(role).includes(keyword)));
+				const uid = userInfo._id || userInfo.uid || userInfo.user_id || '';
+				const name = userInfo.nickname || userInfo.realname || userInfo.username || '';
+				if (!isLiveTeacher || !uid || !name) return null;
+				return { value: `live_teacher_${uid}`, label: `直播（${name}）`, aliases: [`live_teacher_${uid}`, `直播（${name}）`], is_dynamic: true };
+			},
 			leadProviderSources() {
-				if (this.accessProfile.loaded) return this.accessProfile.visible_sources || [];
+				if (this.accessProfile.loaded) return Array.from(new Set([...(this.accessProfile.visible_sources || []), ...((this.currentLiveTeacherSourceOption && this.currentLiveTeacherSourceOption.aliases) || [])]));
 				if (this.isAdmin) return [];
 				const set = new Set();
 				this.userRoles.forEach((role) => {
@@ -1016,7 +1086,9 @@
 				return Array.from(set);
 			},
 			isLeadProviderRole() {
-				return this.leadProviderSources.length > 0;
+				if (this.accessProfile.loaded) return Boolean(this.accessProfile.is_lead_provider);
+				// 权限接口尚未返回时，仅按历史角色名称兜底，不能因为来源范围而误判咨询师。
+				return this.userRoles.some((role) => ['直播', '投流', 'live_teacher', 'zhibo', 'traffic_teacher'].some((keyword) => String(role).includes(keyword)));
 			},
 			canAssignConsultantInForm() {
 				return this.isLeadProviderRole || (this.isAdmin && this.form.type === 'add');
@@ -1025,8 +1097,23 @@
 				return this.isAdmin || this.isLeadProviderRole;
 			},
 			availableSourceOptions() {
-				if (this.isAdmin || !this.isLeadProviderRole) return sourceOptions;
-				return sourceOptions.filter((item) => this.leadProviderSources.includes(item.value));
+				// 来源下拉严格使用线索管理返回的配置，旧版静态数组只用于兼容历史数据展示和导入。
+				const currentSource = this.form.data && this.form.data.source;
+				const options = (this.accessProfile.loaded ? (this.accessProfile.source_options || []) : [])
+					// “live”只用于角色权限匹配，不是客户实际来源，不能出现在客户表单中。
+					.filter((item) => item.value !== 'live')
+					.filter((item) => item.enabled !== false || item.value === currentSource)
+					.filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
+				// 直播老师新增客户时，当前账号的动态来源属于“直播来源”范围，允许作为实际保存值。
+				if (this.isLeadProviderRole && this.currentLiveTeacherSourceOption && !options.some((item) => item.value === this.currentLiveTeacherSourceOption.value)) {
+					options.push(this.currentLiveTeacherSourceOption);
+				}
+				// 编辑历史客户时，当前动态来源必须保留，否则 el-select 会直接显示内部编码。
+				if (String(currentSource || '').startsWith('live_teacher_') && !options.some((item) => item.value === currentSource)) {
+					options.push({ value: currentSource, label: this.formatSourceLabel(currentSource), aliases: [currentSource] });
+				}
+				if (this.isAdmin || !this.isLeadProviderRole) return options;
+				return options.filter((item) => this.leadProviderSources.includes(item.value) || (item.aliases || []).some((alias) => this.leadProviderSources.includes(alias)));
 			},
 			visibleFormColumns() {
 				const columns = this.form.columns
@@ -1036,6 +1123,7 @@
 							return {
 								...column,
 								data: this.availableSourceOptions,
+								disabled: Boolean(column.disabled || (this.form.data._id && !this.isAdmin)),
 							};
 						}
 						if (column.key === 'wechat_added') {
@@ -1118,6 +1206,13 @@
 			},
 			handleRouteCustomer(options = {}) {
 				const routeOptions = this.getRouteOptions(options);
+				if (routeOptions.source) {
+					this.routeSource = String(routeOptions.source);
+					this.query.formData.source = this.routeSource;
+				} else if (this.routeSource) {
+					this.routeSource = '';
+					if (this.query.formData.source) this.query.formData.source = '';
+				}
 				const routeAction = routeOptions.action || routeOptions.open || '';
 				if (routeAction === 'add' || routeAction === 'new') {
 					this.routeCustomerId = '';
@@ -1172,9 +1267,16 @@
 							is_admin: Boolean(profile.is_admin),
 							is_lead_provider: Boolean(profile.is_lead_provider),
 							visible_sources: Array.isArray(profile.visible_sources) ? profile.visible_sources : [],
+							source_options: Array.isArray(profile.source_options) ? profile.source_options : [],
+							source_options: Array.isArray(profile.source_options) ? profile.source_options : [],
 							role_keys: Array.isArray(profile.role_keys) ? profile.role_keys : [],
 						};
+						applyCustomerStatusOptions(profile.status_options);
+						this.query.columns.find((item) => item.key === 'status').data = statusOptions;
+						this.form.columns.find((item) => item.key === 'status').data = statusOptions;
+						this.followup.form.columns.find((item) => item.key === 'status').data = statusOptions;
 						if (this.canViewConsultantFilter) this.loadConsultants();
+						if (this.routeSource) this.$nextTick(() => this.refresh());
 					},
 					fail: () => {
 						this.accessProfile.loaded = true;
@@ -1404,7 +1506,9 @@
 				}
 				if (!data.status) data.status = 'initial_contact';
 				if (!data._add_time) data._add_time = Date.now();
-				if (!data.source) data.source = this.availableSourceOptions[0] && this.availableSourceOptions[0].value || 'other';
+				if (!data.source) data.source = (this.isLeadProviderRole && this.currentLiveTeacherSourceOption
+					? this.currentLiveTeacherSourceOption.value
+					: this.availableSourceOptions[0] && this.availableSourceOptions[0].value) || 'other';
 				data.attachments = [];
 				return data;
 			},
@@ -1417,7 +1521,10 @@
 					const matched = statusOptions.find((item) => item.value === text || item.label === text);
 					return matched ? matched.value : normalizeCustomerStatus(text);
 				}
-				if (field === 'source') return normalizeSourceValue(sourceImportValueMap[text] || text);
+				if (field === 'source') {
+					const matchedOption = this.availableSourceOptions.find((item) => item.label === text || item.value === text || (item.aliases || []).includes(text));
+					return normalizeSourceValue(matchedOption ? matchedOption.value : (sourceImportValueMap[text] || text));
+				}
 				if (field === 'wechat_added') {
 					const lowerText = text.toLowerCase();
 					if (yesValues.includes(lowerText) || yesValues.includes(text)) return true;
@@ -1672,6 +1779,7 @@
 					this.form.convertedStatusConfirmed = true;
 					callback();
 				}).catch(() => {
+					this.form.submitting = false;
 					this.activeCustomerTab = 'info';
 				});
 			},
@@ -1700,7 +1808,9 @@
 			},
 			add() {
 				if (!this.canManageCustomers) return;
-				const defaultSource = this.availableSourceOptions[0] && this.availableSourceOptions[0].value || '';
+				const defaultSource = (this.isLeadProviderRole && this.currentLiveTeacherSourceOption
+					? this.currentLiveTeacherSourceOption.value
+					: '') || '';
 				this.activeCustomerTab = 'info';
 				this.materialFiles = [];
 				this.form.data = {
@@ -1899,6 +2009,11 @@
 					records = this.sortFollowupRecords(records);
 				}
 				this.form.data.followup_records = records;
+				// 已签单确认已在进度弹窗中完成，回到客户编辑页时跳过同一次操作的重复确认。
+				const latestFollowupStatus = normalizeCustomerStatus(result.status || this.getLatestManualFollowupStatus(records));
+				if (latestFollowupStatus === 'converted' && normalizeCustomerStatus(this.followup.form.data.status) === 'converted') {
+					this.form.convertedStatusConfirmed = true;
+				}
 				if (this.detail.data && this.detail.data._id === this.followup.form.data.customer_id) {
 					this.detail.data.followup_records = records;
 					this.detail.data.status = result.status || this.getLatestManualFollowupStatus(records);
@@ -2206,6 +2321,7 @@
 				type: 'success',
 				position: 'bottom-right',
 			});
+			this.form.submitting = false;
 			this.$set(this.form, 'show', false);
 			this.$nextTick(() => this.refresh());
 				},
@@ -2238,9 +2354,11 @@
 							this.success(result);
 							return;
 						}
+						this.form.submitting = false;
 						this.showCustomerSubmitNotice((result && result.msg) || '客户信息保存失败，请重试');
 					},
 					fail: (error) => {
+						this.form.submitting = false;
 						const message = error && (error.msg || error.message) || '客户信息保存失败，请重试';
 						this.showCustomerSubmitNotice(message, 'error');
 					},
@@ -2252,6 +2370,7 @@
 				if (innerForm && typeof innerForm.validate === 'function') {
 					innerForm.validate((valid) => {
 						if (!valid) {
+							this.form.submitting = false;
 							this.showCustomerSubmitNotice('请先完善必填信息');
 							return;
 						}
@@ -2262,6 +2381,7 @@
 				this.submitCustomerByRequest();
 			},
 			submitCustomerDialog() {
+				if (this.form.submitting) return;
 				// 顶部“咨询师”选择框不在 vk-data-form 内，需在外层提交入口单独校验。
 				if (this.canAssignConsultantInForm && !String(this.form.data.consultant_id || '').trim()) {
 					this.activeCustomerTab = 'info';
@@ -2279,6 +2399,7 @@
 					this.showCustomerSubmitNotice('咨询师已修改客户资料，不能再修改咨询师');
 					return;
 				}
+				this.form.submitting = true;
 				// 客户信息改为外层显式提交，这样后端业务拦截也能统一转为右下角提醒。
 				this.activeCustomerTab = 'info';
 				this.$nextTick(() => {
@@ -2294,6 +2415,89 @@
 <style lang="scss" scoped>
 	page {
 		background-color: var(--bgcolor);
+	}
+
+	/* 客户筛选区采用自适应网格，不再依赖固定屏幕断点或 nth-child 排版。 */
+	::v-deep .vk-page-search-card .vk-data-table-query .el-form {
+		display: grid !important;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+		gap: 12px 16px;
+		align-items: center;
+	}
+
+	::v-deep .vk-page-search-card .vk-data-table-query .el-form-item {
+		box-sizing: border-box;
+		width: auto !important;
+		min-width: 0;
+		margin: 0 !important;
+	}
+
+	::v-deep .vk-page-search-card .vk-data-table-query .el-form-item__label {
+		box-sizing: border-box;
+		width: 88px !important;
+		padding-right: 10px;
+		white-space: nowrap;
+	}
+
+	::v-deep .vk-page-search-card .vk-data-table-query .el-form-item__content {
+		min-width: 0;
+		margin-left: 0 !important;
+		flex: 1;
+	}
+
+	::v-deep .vk-page-search-card .vk-data-table-query .el-input,
+	::v-deep .vk-page-search-card .vk-data-table-query .el-select,
+	::v-deep .vk-page-search-card .vk-data-table-query .el-date-editor {
+		width: 100% !important;
+	}
+
+	/* 客户搜索和时间范围需要更宽，其他条件保持统一宽度。 */
+	::v-deep .vk-page-search-card .vk-data-table-query .el-form-item:has(.query-input),
+	::v-deep .vk-page-search-card .vk-data-table-query .el-form-item:has(.customer-created-time-range) {
+		grid-column: span 2;
+	}
+
+	::v-deep .vk-page-search-card .customer-created-time-range {
+		box-sizing: border-box;
+		min-width: 0;
+	}
+
+	::v-deep .vk-page-search-card .customer-created-time-range .el-range-input {
+		min-width: 0;
+		width: calc(50% - 10px);
+	}
+
+	::v-deep .vk-page-search-card .vk-data-table-query .form-item--actions {
+		grid-column: 1 / -1;
+		justify-self: end;
+		width: auto !important;
+	}
+
+	::v-deep .vk-page-search-card .vk-data-table-query .form-item--actions .el-form-item__content {
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+		gap: 8px;
+	}
+
+	@media (max-width: 680px) {
+		::v-deep .vk-page-search-card .vk-data-table-query .el-form {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		::v-deep .vk-page-search-card .vk-data-table-query .el-form-item:has(.query-input),
+		::v-deep .vk-page-search-card .vk-data-table-query .el-form-item:has(.customer-created-time-range) {
+			grid-column: span 1;
+		}
+
+		::v-deep .vk-page-search-card .vk-data-table-query .form-item--actions {
+			grid-column: 1;
+			justify-self: stretch;
+		}
+
+		::v-deep .vk-page-search-card .vk-data-table-query .form-item--actions .el-form-item__content {
+			justify-content: flex-start;
+		}
 	}
 
 	.customer-detail-shell {

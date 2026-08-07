@@ -26,3 +26,19 @@ export const getCustomerStatusOption = (value) => {
 	const normalizedValue = normalizeCustomerStatus(value);
 	return customerStatusOptions.find((item) => item.value === normalizedValue) || customerStatusOptions[0];
 };
+
+// 云端状态配置加载后原地更新，保证已引用该数组的表单列和筛选列同步刷新。
+export const applyCustomerStatusOptions = (options = []) => {
+	if (!Array.isArray(options) || !options.length) return customerStatusOptions;
+	const normalizedOptions = options
+		.filter((item) => item && item.enabled !== false)
+		.sort((a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0))
+		.map((item) => ({
+			value: item.value,
+			label: item.label || item.value,
+			className: item.className || `tm-status-tag--${item.value}`,
+		}));
+	if (!normalizedOptions.length) return customerStatusOptions;
+	customerStatusOptions.splice(0, customerStatusOptions.length, ...normalizedOptions);
+	return customerStatusOptions;
+};

@@ -261,5 +261,41 @@
     "icon": "vk-icon-present",
     "name": "抽奖活动",
     "parent_id": "system-uni"
+  },
+  {
+    "_id": "tm-customer-config",
+    "_add_time": 1786000000000,
+    "menu_id": "tm-customer-config",
+    "name": "客户配置",
+    "icon": "el-icon-s-tools",
+    "url": "",
+    "comment": "客户字典配置：状态与线索来源由管理员维护",
+    "sort": 120,
+    "parent_id": "",
+    "enable": true
+  },
+  {
+    "_id": "tm-customer-status",
+    "_add_time": 1786000000000,
+    "menu_id": "tm-customer-status",
+    "name": "客户状态管理",
+    "icon": "el-icon-price-tag",
+    "url": "/pages_plugs/system/customer-status/list",
+    "comment": "维护客户阶段与质量分类，编码固定不变",
+    "sort": 1,
+    "parent_id": "tm-customer-config",
+    "enable": true
+  },
+  {
+    "_id": "tm-lead-source",
+    "_add_time": 1786000000000,
+    "menu_id": "tm-lead-source",
+    "name": "线索来源管理",
+    "icon": "el-icon-connection",
+    "url": "/pages_plugs/system/lead/list",
+    "comment": "维护线索来源，按角色配置可管理范围",
+    "sort": 2,
+    "parent_id": "tm-customer-config",
+    "enable": true
   }
 ]

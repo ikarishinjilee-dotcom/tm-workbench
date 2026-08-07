@@ -55,12 +55,17 @@ const getCurrentUserInfo = async (context, uid, userInfo = {}) => {
   const roles = normalizeRoleList(currentUserInfo);
   const roleIds = roles.map((role) => typeof role === 'string' ? role : role && (role.role_id || role.value)).filter(Boolean);
   const needRoleDetail = roleIds.length > 0 && !roles.some((role) => typeof role !== 'string' && (role.role_name || role.name));
-  if (!needRoleDetail) return currentUserInfo;
+  const needLeadSettings = roleIds.length > 0 && roles.some((role) => typeof role === 'string'
+    || !Object.prototype.hasOwnProperty.call(role, 'lead_sources')
+    || !Object.prototype.hasOwnProperty.call(role, 'lead_permissions'));
+  if (!needRoleDetail && !needLeadSettings) return currentUserInfo;
   const db = uniCloud.database();
   const dbCmd = db.command;
   const roleRes = await db.collection('uni-id-roles').where({ role_id: dbCmd.in(roleIds) }).field({
     role_id: true,
     role_name: true,
+    lead_permissions: true,
+    lead_sources: true,
   }).get();
   const roleMap = {};
   (roleRes.data || []).forEach((item) => {
@@ -96,6 +101,27 @@ const customerStatusOptions = [
   { value: 'refunded', label: '已退单' },
   { value: 'not_interested', label: '不考虑' },
 ];
+// 客户质量分类：由客户状态管理页维护，内置状态使用默认等级。
+const customerQualityValues = ['high', 'normal', 'low', 'invalid'];
+// 内置状态默认质量等级，字典表未配置时兜底。
+const defaultQualityByStatus = {
+  initial_contact: 'normal',
+  communicating_positive: 'high',
+  communicating_difficult: 'low',
+  invited: 'high',
+  converted: 'high',
+  refunded: 'invalid',
+  not_interested: 'invalid',
+};
+const customerStatusCollectionName = 'uni-id-customer-statuses';
+const defaultCustomerStatusOptions = customerStatusOptions.map((item, index) => ({
+  ...item,
+  quality_level: defaultQualityByStatus[item.value] || 'normal',
+  built_in: true,
+  enabled: true,
+  sort: (index + 1) * 10,
+  aliases: [item.label],
+}));
 const postConvertedStatusValues = ['converted', 'refunded'];
 const customerStatusLabelMap = customerStatusOptions.reduce((map, item) => {
   map[item.label] = item.value;
@@ -161,27 +187,71 @@ const sourceAliasMap = {
   wechat_channels_promotion: ['wechat_channels_promotion', '视频号线索', 'wechat_channels'],
   douyin_promotion: ['douyin_promotion', '抖音线索', 'douyin'],
 };
+const getLeadProviderName = (userInfo = {}) => userInfo.nickname || userInfo.realname || userInfo.username || '';
+const getLiveTeacherSourceAliases = (userInfo = {}) => {
+  const uid = userInfo._id || userInfo.uid || '';
+  const name = getLeadProviderName(userInfo);
+  if (!uid && !name) return [];
+  const aliases = [];
+  if (uid) aliases.push(`live_teacher_${uid}`);
+  if (name) aliases.push(`直播（${name}）`);
+  // 兼容历史上固定使用“直播（周老师）”的账号。
+  if (String(name).includes('周')) aliases.push(...sourceAliasMap.live_teacher_zhou);
+  return Array.from(new Set(aliases));
+};
+const isLiveTeacherUser = (userInfo = {}) => {
+  const roleValues = normalizeRoleKeys(userInfo);
+  const identityValues = [userInfo.username, userInfo.nickname, userInfo.realname].filter(Boolean);
+  return [...roleValues, ...identityValues].some((value) => {
+    const text = String(value);
+    return ['live_teacher', 'zhibo', '直播'].some((keyword) => text === keyword || text.includes(keyword));
+  });
+};
+const getLiveTeacherSourceOption = (userInfo = {}) => {
+  const aliases = getLiveTeacherSourceAliases(userInfo);
+  const value = aliases.find((item) => item.startsWith('live_teacher_')) || '';
+  const label = aliases.find((item) => item.startsWith('直播（')) || '';
+  return value && label ? { value, label, aliases } : null;
+};
 const leadProviderSourceRoleMap = {
-  live_teacher: ['live_teacher_zhou'],
-  '直播老师': ['live_teacher_zhou'],
+  live_teacher: [],
+  '直播老师': [],
   traffic_teacher: ['wechat_channels_promotion', 'douyin_promotion'],
   '投流老师': ['wechat_channels_promotion', 'douyin_promotion'],
 };
 const fuzzyLeadProviderSourceRoleMap = [
-  { keywords: ['直播'], sources: ['live_teacher_zhou'] },
+  { keywords: ['直播'], sources: [] },
   { keywords: ['投流'], sources: ['wechat_channels_promotion', 'douyin_promotion'] },
 ];
 const leadProviderIdentityKeywordMap = [
-  { keywords: ['直播'], sources: ['live_teacher_zhou'] },
   { keywords: ['投流'], sources: ['wechat_channels_promotion', 'douyin_promotion'] },
   { keywords: ['视频号'], sources: ['wechat_channels_promotion'] },
   { keywords: ['抖音'], sources: ['douyin_promotion'] },
 ];
 const getSourceAliases = (value) => Array.from(new Set(sourceAliasMap[value] || [value])).filter(Boolean);
+const sameCustomerSource = (left, right) => {
+  if (left === right) return true;
+  const leftAliases = getSourceAliases(left);
+  const rightAliases = getSourceAliases(right);
+  return leftAliases.some((alias) => rightAliases.includes(alias));
+};
 const getLeadProviderVisibleSources = (userInfo = {}) => {
   const roles = normalizeRoleList(userInfo);
   const sources = [];
+  let hasConfiguredSourceScope = false;
   roles.forEach((role) => {
+    if (role && typeof role === 'object' && Array.isArray(role.lead_sources)) {
+      hasConfiguredSourceScope = true;
+      role.lead_sources.forEach((source) => {
+        // “直播来源”是权限配置中的通用分类，实际客户来源使用每个直播账号的动态编码。
+        if (source === 'live') {
+          sources.push(...getLiveTeacherSourceAliases(userInfo));
+        } else {
+          sources.push(source);
+        }
+      });
+      return;
+    }
     Object.keys(leadProviderSourceRoleMap).forEach((roleKey) => {
       if (roleMatches(role, [roleKey])) sources.push(...leadProviderSourceRoleMap[roleKey]);
     });
@@ -192,6 +262,7 @@ const getLeadProviderVisibleSources = (userInfo = {}) => {
       }
     });
   });
+  if (hasConfiguredSourceScope) return Array.from(new Set(sources.flatMap((source) => getSourceAliases(source))));
   const identityValues = [
     userInfo.username,
     userInfo.nickname,
@@ -203,6 +274,7 @@ const getLeadProviderVisibleSources = (userInfo = {}) => {
       sources.push(...config.sources);
     }
   });
+  if (isLiveTeacherUser(userInfo)) sources.push(...getLiveTeacherSourceAliases(userInfo));
   return Array.from(new Set(sources.flatMap((source) => getSourceAliases(source))));
 };
 const isLeadProviderUser = (userInfo = {}) => !isSuperAdmin(userInfo) && getLeadProviderVisibleSources(userInfo).length > 0;
@@ -247,15 +319,17 @@ const notifyCustomerDistribution = async ({ db, recipientId, customerId, custome
   });
 };
 
-const getCustomerStatusLabel = (value) => {
+const getCustomerStatusLabel = (value, options = customerStatusOptions) => {
   const normalized = normalizeCustomerStatus(value);
-  const option = customerStatusOptions.find((item) => item.value === normalized);
+  const option = options.find((item) => item.value === normalized);
   return option ? option.label : normalized;
 };
 
 const notifyLeadProviderFollowupFeedback = async ({ db, customer = {}, record = {}, actorId, actorName, isUpdate = false }) => {
   if (!db || !customer._id) return;
   const sourceAliases = getSourceAliases(customer.source || '');
+  const normalizedStatus = normalizeCustomerStatus(record.status);
+  const isImportantFeedback = ['converted', 'refunded'].includes(normalizedStatus);
   let recipientIds = [customer.lead_provider_id].filter(Boolean);
   if (!recipientIds.length && sourceAliases.length) {
     const providerRes = await db.collection('uni-id-users').field({
@@ -276,13 +350,43 @@ const notifyLeadProviderFollowupFeedback = async ({ db, customer = {}, record = 
       .filter(Boolean);
   }
   recipientIds = Array.from(new Set(recipientIds)).filter((recipientId) => recipientId && recipientId !== actorId);
-  if (!recipientIds.length) return;
+  if (!recipientIds.length && !isImportantFeedback) return;
   const customerName = customer.parent_name || customer.name || '未命名客户';
-  const normalizedStatus = normalizeCustomerStatus(record.status);
-  const statusLabel = getCustomerStatusLabel(normalizedStatus);
+  let statusOptions = customerStatusOptions;
+  try {
+    // 通知必须使用状态管理页中的最新名称，不能把自定义状态的内部编码直接展示给用户。
+    statusOptions = await getCustomerStatusOptions(db, false);
+  } catch (error) {
+    // 状态配置集合尚未部署时，保留内置状态兜底，不阻断原有进度保存。
+    statusOptions = customerStatusOptions;
+  }
+  const statusLabel = getCustomerStatusLabel(normalizedStatus, statusOptions);
   const actionText = isUpdate ? '更新了进度' : '新增了进度';
   const contentText = String(record.content || '').trim();
   const isConverted = normalizedStatus === 'converted';
+  if (isImportantFeedback) {
+    const adminIds = (recipientUsersRes.data || [])
+      .filter((item) => isSuperAdmin(item))
+      .map((item) => item._id)
+      .filter((recipientId) => recipientId && recipientId !== actorId && !recipientIds.includes(recipientId));
+    await Promise.all(adminIds.map((recipientId) => db.collection('tm-notifications').add({
+      recipient_id: recipientId,
+      type: 'customer_followup_key_event',
+      title: isConverted ? '客户签单反馈' : '客户退单反馈',
+      content: `${actorName || '咨询师'}已将客户“${customerName}”推进为${statusLabel}${contentText ? `，内容：${contentText}` : ''}`,
+      customer_id: customer._id,
+      customer_name: customerName,
+      actor_id: actorId || '',
+      actor_name: actorName || '咨询师',
+      feedback_status: normalizedStatus,
+      feedback_status_label: statusLabel,
+      feedback_content: contentText,
+      read: false,
+      create_time: new Date(),
+      route: `/pages/custom/records?customer_id=${encodeURIComponent(customer._id)}`,
+    })));
+  }
+  if (!recipientIds.length) return;
   await Promise.all(recipientIds.map((recipientId) => db.collection('tm-notifications').add({
     recipient_id: recipientId,
     type: 'customer_followup_feedback',
@@ -392,17 +496,179 @@ const cloudObject = {
   getAccessProfile: async function () {
     const { uid, userInfo = {} } = this.getClientInfo();
     const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
-    const visibleSources = getLeadProviderVisibleSources(currentUserInfo).filter((item) => Object.prototype.hasOwnProperty.call(sourceAliasMap, item));
+    const admin = isSuperAdmin(currentUserInfo);
+    const visibleSources = getLeadProviderVisibleSources(currentUserInfo);
+    const sourceUsersRes = await uniCloud.database().collection('uni-id-users').field({
+      _id: true, username: true, nickname: true, realname: true, status: true,
+      allow_login_background: true, role: true, roles: true, role_id: true, roleIds: true,
+    }).limit(500).get();
+    const allLiveSourceOptions = (sourceUsersRes.data || [])
+      .filter((item) => item.status !== 1 && item.allow_login_background !== false && isLiveTeacherUser(item))
+      .map(getLiveTeacherSourceOption)
+      .filter(Boolean)
+      .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
+    const sourceOptions = admin ? allLiveSourceOptions : allLiveSourceOptions.filter((item) => item.aliases.some((alias) => visibleSources.includes(alias)));
     return {
       code: 0,
       data: {
-        is_admin: isSuperAdmin(currentUserInfo),
-        is_lead_provider: !isSuperAdmin(currentUserInfo) && visibleSources.length > 0,
+        is_admin: admin,
+        is_lead_provider: !admin && visibleSources.length > 0,
         visible_sources: visibleSources,
+        source_options: sourceOptions,
+        status_options: configuredCustomerStatusOptions,
         role_keys: normalizeRoleKeys(currentUserInfo),
       },
     };
   },
+  // 获取角色级线索管理配置。
+  getLeadSettings: async function () {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    if (!isSuperAdmin(currentUserInfo)) return { code: -1, msg: '只有超级管理员可以配置线索权限' };
+    const result = await uniCloud.database().collection('uni-id-roles').field({
+      _id: true, role_id: true, role_name: true, comment: true, enable: true,
+      lead_permissions: true, lead_sources: true,
+    }).orderBy('_add_time', 'asc').get();
+    return { code: 0, data: result.data || [] };
+  },
+
+  // 保存角色级线索管理配置。
+  saveLeadSettings: async function (data = {}) {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    if (!isSuperAdmin(currentUserInfo)) return { code: -1, msg: '只有超级管理员可以配置线索权限' };
+    if (!data.role_id) return { code: -1, msg: '缺少角色标识' };
+    if (data.role_id === 'admin') return { code: -1, msg: '超级管理员默认拥有全部线索权限，无需单独配置' };
+    const permissions = Array.isArray(data.lead_permissions) ? Array.from(new Set(data.lead_permissions.filter(Boolean))) : [];
+    const sources = Array.isArray(data.lead_sources) ? Array.from(new Set(data.lead_sources.filter(Boolean))) : [];
+    await uniCloud.database().collection('uni-id-roles').where({ role_id: data.role_id }).update({
+      lead_permissions: permissions,
+      lead_sources: sources,
+    });
+    return { code: 0, msg: '线索权限已保存', data: { role_id: data.role_id, lead_permissions: permissions, lead_sources: sources } };
+  },
+
+  // 获取客户状态配置。客户业务页可读取启用状态，管理员配置页可读取全部状态。
+  getCustomerStatusOptions: async function (data = {}) {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    const db = uniCloud.database();
+    return { code: 0, data: await getCustomerStatusOptions(db, isSuperAdmin(currentUserInfo) && data.include_disabled === true) };
+  },
+
+  // 新增或修改客户状态。状态 ID 一旦生成后保持不变，避免历史客户和进度记录失效。
+  saveCustomerStatusOption: async function (data = {}) {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    if (!isSuperAdmin(currentUserInfo)) return { code: -1, msg: '只有超级管理员可以维护客户状态' };
+    const label = String(data.label || '').trim();
+    if (!label) return { code: -1, msg: '请输入状态名称' };
+    if (label.length > 30) return { code: -1, msg: '状态名称不能超过30个字' };
+    const db = uniCloud.database();
+    const collection = db.collection(customerStatusCollectionName);
+    const now = Date.now();
+    const qualityLevel = String(data.quality_level || '').trim();
+    if (!customerQualityValues.includes(qualityLevel)) return { code: -1, msg: '请选择客户质量分类' };
+    if (data._id || data.value) {
+      const existingRes = await collection.doc(data._id).get();
+      const existing = existingRes.data && existingRes.data[0];
+      if (!existing) return { code: -1, msg: '客户状态不存在或已删除' };
+      const aliases = [label];
+      const enabled = data.enabled === false ? false : true;
+      const sort = Number(data.sort) || Number(existing.sort) || 0;
+      await collection.doc(existing._id).update({ label, enabled, sort, aliases, _update_time: now });
+      return { code: 0, msg: '客户状态已更新', data: normalizeCustomerStatusOption({ ...existing, label, enabled, sort, aliases }) };
+    }
+    const value = `custom_status_${now}_${Math.random().toString(36).slice(2, 8)}`;
+    const sort = Number(data.sort) || 100;
+    const option = { value, label, built_in: false, enabled: true, sort, aliases: [label], _add_time: now, _update_time: now };
+    const addRes = await collection.add(option);
+    return { code: 0, msg: '客户状态已新增', data: normalizeCustomerStatusOption({ ...option, _id: addRes.id }) };
+  },
+
+  // 不删除状态，统一改为停用，确保历史客户和进度记录始终可追溯。
+  toggleCustomerStatusOption: async function (data = {}) {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    if (!isSuperAdmin(currentUserInfo)) return { code: -1, msg: '只有超级管理员可以维护客户状态' };
+    if (!data._id) return { code: -1, msg: '缺少客户状态标识' };
+    const db = uniCloud.database();
+    const collection = db.collection(customerStatusCollectionName);
+    const existingRes = await collection.doc(data._id).get();
+    const existing = existingRes.data && existingRes.data[0];
+    if (!existing) return { code: -1, msg: '客户状态不存在或已删除' };
+    const enabled = data.enabled !== false;
+    await collection.doc(data._id).update({ enabled, _update_time: Date.now() });
+    return { code: 0, msg: enabled ? '客户状态已启用' : '客户状态已停用' };
+  },
+
+  // 获取管理员维护的线索来源。
+  getLeadSourceOptions: async function () {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    if (!isSuperAdmin(currentUserInfo)) return { code: -1, msg: '只有超级管理员可以维护线索来源' };
+    const db = uniCloud.database();
+    const options = await getLeadSourceOptions(db);
+    const usersRes = await db.collection('uni-id-users').field({
+      _id: true, username: true, nickname: true, realname: true, status: true, allow_login_background: true,
+      role: true, roles: true, role_id: true, roleIds: true,
+    }).limit(500).get();
+    const dynamicOptions = (usersRes.data || [])
+      .filter((item) => isLiveTeacherUser(item))
+      .map((item) => {
+        const option = getLiveTeacherSourceOption(item);
+        return option ? { ...option, enabled: item.status !== 1 && item.allow_login_background !== false } : null;
+      })
+      .filter(Boolean)
+      .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
+    return { code: 0, data: options, dynamic_source_options: dynamicOptions };
+  },
+
+  // 新增或修改线索来源。value 是内部稳定标识，编辑时只允许修改显示名称。
+  saveLeadSourceOption: async function (data = {}) {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    if (!isSuperAdmin(currentUserInfo)) return { code: -1, msg: '只有超级管理员可以维护线索来源' };
+    const label = String(data.label || '').trim();
+    if (!label) return { code: -1, msg: '请输入来源名称' };
+    if (label.length > 30) return { code: -1, msg: '来源名称不能超过30个字' };
+    const db = uniCloud.database();
+    const collection = db.collection(leadSourceCollectionName);
+    const now = Date.now();
+    if (data._id || data.value) {
+      const existingRes = data._id
+        ? await collection.doc(data._id).get()
+        : await collection.where({ value: data.value }).limit(1).get();
+      const existing = existingRes.data && existingRes.data[0];
+      if (!existing) return { code: -1, msg: '来源不存在或已删除' };
+      const enabled = data.enabled === false ? false : true;
+      await collection.doc(existing._id).update({ label, enabled, _update_time: now });
+      return { code: 0, msg: '线索来源已更新', data: normalizeLeadSourceOption({ ...existing, label, enabled }) };
+    }
+    const value = `custom_${now}_${Math.random().toString(36).slice(2, 8)}`;
+    const sort = Number(data.sort) || 100;
+    const addRes = await collection.add({ value, label, built_in: false, enabled: true, sort, _add_time: now, _update_time: now });
+    return { code: 0, msg: '线索来源已新增', data: normalizeLeadSourceOption({ _id: addRes.id, value, label, built_in: false, enabled: true, sort }) };
+  },
+
+  // 内置来源不删除；自定义来源被客户使用后也不删除，避免历史客户无法识别来源。
+  deleteLeadSourceOption: async function (data = {}) {
+    const { uid, userInfo = {} } = this.getClientInfo();
+    const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
+    if (!isSuperAdmin(currentUserInfo)) return { code: -1, msg: '只有超级管理员可以维护线索来源' };
+    if (!data._id) return { code: -1, msg: '缺少来源标识' };
+    const db = uniCloud.database();
+    const collection = db.collection(leadSourceCollectionName);
+    const existingRes = await collection.doc(data._id).get();
+    const existing = existingRes.data && existingRes.data[0];
+    if (!existing) return { code: -1, msg: '来源不存在或已删除' };
+    if (existing.built_in) return { code: -1, msg: '内置来源不能删除，只能修改名称' };
+    const usedCount = await db.collection('tm-clients').where({ source: existing.value }).count();
+    if (usedCount.total > 0) return { code: -1, msg: `该来源已被${usedCount.total}个客户使用，不能删除` };
+    await collection.doc(data._id).remove();
+    return { code: 0, msg: '线索来源已删除', data: { _id: data._id } };
+  },
+
   isCloudObject: true,
 
   getList: async function (data = {}) {
@@ -411,7 +677,7 @@ const cloudObject = {
     const currentUserInfo = await getCurrentUserInfo(this, uid, userInfo);
     const admin = isSuperAdmin(currentUserInfo);
     const visibleSources = getLeadProviderVisibleSources(currentUserInfo);
-    const whereJson = applyCustomerAccessWhere({ whereJson: {}, userInfo: currentUserInfo, uid, admin, _ });
+    let whereJson = applyCustomerAccessWhere({ whereJson: {}, userInfo: currentUserInfo, uid, admin, _ });
     // 已删除客户只能由管理员查看；普通列表兼容历史数据中没有 is_deleted 的客户。
     const showDeleted = admin && data.formData && data.formData._deleted_view === true;
     whereJson.is_deleted = showDeleted ? true : _.neq(true);
@@ -428,23 +694,55 @@ const cloudObject = {
     const selectedConsultantId = queryData.formData.consultant_id;
     delete queryData.formData.consultant_id;
     if ((admin || visibleSources.length) && selectedConsultantId) whereJson.consultant_id = selectedConsultantId;
+    // 一个关键词同时匹配家长姓名、孩子姓名和联系电话。
+    const customerKeyword = String(queryData.formData.customer_keyword || '').trim();
+    delete queryData.formData.customer_keyword;
+    if (customerKeyword) {
+      const keywordRegExp = new RegExp(vk.pubfn.escapeRegExp(customerKeyword), 'i');
+      whereJson = _.and(whereJson, _.or([
+        { parent_name: keywordRegExp },
+        { child_name: keywordRegExp },
+        { contact_phone: keywordRegExp },
+      ]));
+    }
+    // 日期范围组件提交数组，转换成原有的开始/结束时间条件，兼容旧版查询参数。
+    const createdTimeRange = queryData.formData._add_time_range;
+    delete queryData.formData._add_time_range;
+    if (Array.isArray(createdTimeRange) && createdTimeRange.length === 2) {
+      queryData.formData._add_time_start = createdTimeRange[0];
+      queryData.formData._add_time_end = createdTimeRange[1];
+    }
     const selectedStarred = queryData.formData.is_starred;
     delete queryData.formData.is_starred;
-    // 纯日期筛选的结束日期按当天结束时间计算，避免漏掉结束日期当天的客户。
-    if (queryData.formData._add_time_start) {
-      const start = new Date(queryData.formData._add_time_start);
+    // 将时间范围直接写入最终 where 条件，避免 daterange 字段被 baseDao 当成普通字段处理。
+    const createdTimeStartValue = queryData.formData._add_time_start;
+    const createdTimeEndValue = queryData.formData._add_time_end;
+    delete queryData.formData._add_time_start;
+    delete queryData.formData._add_time_end;
+    let createdTimeStart = 0;
+    let createdTimeEnd = 0;
+    if (createdTimeStartValue) {
+      const start = new Date(createdTimeStartValue);
       start.setHours(0, 0, 0, 0);
-      queryData.formData._add_time_start = start.getTime();
+      createdTimeStart = start.getTime();
     }
-    if (queryData.formData._add_time_end) {
-      const end = new Date(queryData.formData._add_time_end);
+    if (createdTimeEndValue) {
+      const end = new Date(createdTimeEndValue);
       end.setHours(23, 59, 59, 999);
-      queryData.formData._add_time_end = end.getTime();
+      createdTimeEnd = end.getTime();
     }
-    if (queryData.formData._add_time_start && queryData.formData._add_time_end && queryData.formData._add_time_start > queryData.formData._add_time_end) {
-      const timeStart = queryData.formData._add_time_start;
-      queryData.formData._add_time_start = queryData.formData._add_time_end;
-      queryData.formData._add_time_end = timeStart;
+    if (createdTimeStart && createdTimeEnd && createdTimeStart > createdTimeEnd) {
+      const timeStart = createdTimeStart;
+      createdTimeStart = createdTimeEnd;
+      createdTimeEnd = timeStart;
+    }
+    const createdTimeConditions = [];
+    if (createdTimeStart) createdTimeConditions.push(_.gte(createdTimeStart));
+    if (createdTimeEnd) createdTimeConditions.push(_.lte(createdTimeEnd));
+    if (createdTimeConditions.length === 1) {
+      whereJson = _.and(whereJson, { _add_time: createdTimeConditions[0] });
+    } else if (createdTimeConditions.length === 2) {
+      whereJson = _.and(whereJson, { _add_time: _.and(createdTimeConditions[0], createdTimeConditions[1]) });
     }
     const selectedStatus = queryData.formData.status;
     if (selectedStatus !== undefined && selectedStatus !== null && selectedStatus !== '') {
@@ -496,6 +794,11 @@ const cloudObject = {
     applyCustomerAccessWhere({ whereJson, userInfo: currentUserInfo, uid, admin, _ });
 
     const dashboardDb = uniCloud.database();
+    const configuredDashboardStatusOptions = await getCustomerStatusOptions(dashboardDb, false);
+    const statusQualityMap = configuredDashboardStatusOptions.reduce((map, option) => {
+      map[option.value] = option.quality_level || defaultQualityByStatus[option.value] || 'normal';
+      return map;
+    }, {});
     const result = await dashboardDb.collection('tm-clients')
       .where(whereJson)
       .field({ _id: true, name: true, parent_name: true, status: true, source: true, consultant_id: true, consultant_name: true, _add_time: true, last_edit_time: true, progress: true, followup_records: true, contract_amount: true, is_starred: true, starred_at: true, starred_by: true, starred_by_name: true, starred_user_ids: true, starred_users: true })
@@ -536,10 +839,17 @@ const cloudObject = {
     const parseTimeValue = (value) => {
       if (!value) return 0;
       if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+      if (value instanceof Date) return Number.isNaN(value.getTime()) ? 0 : value.getTime();
       const numericValue = Number(value);
       if (Number.isFinite(numericValue) && numericValue > 0) return numericValue;
-      const parsedTime = new Date(String(value).replace(/-/g, '/')).getTime();
-      return Number.isNaN(parsedTime) ? 0 : parsedTime;
+      const stringValue = String(value).trim();
+      if (!stringValue) return 0;
+      // 优先解析 ISO 时间，兼容前端日期组件序列化后的进度时间。
+      const parsedTime = new Date(stringValue).getTime();
+      if (!Number.isNaN(parsedTime)) return parsedTime;
+      // 再兼容历史数据中的 yyyy-MM-dd HH:mm:ss 格式。
+      const legacyParsedTime = new Date(stringValue.replace(/-/g, '/')).getTime();
+      return Number.isNaN(legacyParsedTime) ? 0 : legacyParsedTime;
     };
     const getRecordTime = (record = {}) => {
       const timeFields = [record.contact_time, record.create_time, record.update_time, record._add_time];
@@ -558,7 +868,6 @@ const cloudObject = {
       const normalizedStatus = statusOf(row);
       return Boolean(normalizedStatus && normalizedStatus !== 'initial_contact' || String(row.progress || '').trim());
     };
-    const hasStatusAdvanced = (row) => statusOf(row) !== 'initial_contact';
     const parseAmount = (value) => {
       const amount = Number(String(value || '').replace(/[^\d.-]/g, ''));
       return Number.isFinite(amount) ? amount : 0;
@@ -567,7 +876,21 @@ const cloudObject = {
       const time = parseTimeValue(value);
       return time >= todayStart && time < todayEnd;
     };
+    const getTodayStatusRecords = (row) => getManualRecords(row).filter((record) => isToday(record.contact_time));
+    const hasTodayStatusAdvanced = (row) => getTodayStatusRecords(row)
+      .some((record) => normalizeCustomerStatus(record.status) !== 'initial_contact');
+    const hasTodayConverted = (row) => getTodayStatusRecords(row)
+      .some((record) => normalizeCustomerStatus(record.status) === 'converted');
+    const hasMonthConverted = (row) => getManualRecords(row)
+      .some((record) => getRecordTime(record) >= monthStart && normalizeCustomerStatus(record.status) === 'converted')
+      || (statusOf(row) === 'converted' && Number(row.last_edit_time || 0) >= monthStart);
     const statusOf = (row) => normalizeCustomerStatus(row.status);
+    const hasMonthProgress = (row) => getManualRecords(row)
+      .some((record) => getRecordTime(record) >= monthStart)
+      || (statusOf(row) !== 'initial_contact' && Number(row.last_edit_time || 0) >= monthStart);
+    const hasMonthStatus = (row, targetStatus) => getManualRecords(row)
+      .some((record) => getRecordTime(record) >= monthStart && normalizeCustomerStatus(record.status) === targetStatus)
+      || (statusOf(row) === targetStatus && Number(row.last_edit_time || 0) >= monthStart);
     const sortedByPriority = [...rows].sort((a, b) => {
       const priority = { invited: 5, communicating_positive: 4, initial_contact: 3, communicating_difficult: 2, converted: 1, not_interested: 0 };
       return (priority[statusOf(b)] || 0) - (priority[statusOf(a)] || 0) || (b.last_edit_time || b._add_time || 0) - (a.last_edit_time || a._add_time || 0);
@@ -603,11 +926,16 @@ const cloudObject = {
     // 直播/投流老师新增客户时必须同步选择咨询师，因此首页不再表达“待分配”状态。
     // 旧数据如果缺少 consultant_id，也按“已随新增同步”处理，避免页面误导为存在待分配环节。
     const todayAssignedRows = todayRows;
-    const todayConvertedRows = todayRows.filter((row) => statusOf(row) === 'converted');
+    const todayAdvancedRows = rows.filter(hasTodayStatusAdvanced);
+    const todayConvertedRows = rows.filter(hasTodayConverted);
     const todayInvalidRows = todayRows.filter((row) => ['not_interested', 'refunded'].includes(statusOf(row)));
     const todayEffectiveRows = todayRows.filter((row) => !['not_interested', 'refunded'].includes(statusOf(row)));
+    const monthNewRows = rows.filter((row) => Number(row._add_time || 0) >= monthStart);
+    const monthAdvancedRows = rows.filter(hasMonthProgress);
+    const monthConvertedRows = rows.filter((row) => hasMonthStatus(row, 'converted'));
+    const monthRefundedRows = rows.filter((row) => hasMonthStatus(row, 'refunded'));
     const consultantStatMap = {};
-    todayAssignedRows.forEach((row) => {
+    rows.forEach((row) => {
       const consultantName = getAssignedConsultantName(row);
       const key = row.consultant_id || consultantName || 'synced';
       if (!consultantStatMap[key]) {
@@ -616,21 +944,24 @@ const cloudObject = {
           consultant_name: consultantName || '已随新增同步',
           received: 0,
           followed: 0,
-          converted: 0,
+          month_converted: 0,
           followup_rate: 0,
         };
       }
-      consultantStatMap[key].received += 1;
-      if (hasStatusAdvanced(row)) consultantStatMap[key].followed += 1;
-      if (statusOf(row) === 'converted') consultantStatMap[key].converted += 1;
+      const receivedToday = isToday(row._add_time);
+      if (receivedToday) consultantStatMap[key].received += 1;
+      if (receivedToday && hasTodayStatusAdvanced(row)) consultantStatMap[key].followed += 1;
+      if (hasMonthConverted(row)) consultantStatMap[key].month_converted += 1;
     });
     Object.values(consultantStatMap).forEach((item) => {
       item.followup_rate = item.received ? Math.round((item.followed / item.received) * 100) : 0;
     });
-    const sourceStats = Object.values(todayRows.reduce((map, row) => {
+    // 来源效果按当前可见客户累计统计，避免用“当天新增客户当天成交”衡量长周期业务。
+    const sourceStats = Object.values(rows.reduce((map, row) => {
       const key = row.source || 'other';
-      if (!map[key]) map[key] = { source: key, count: 0, converted: 0, amount: 0 };
+      if (!map[key]) map[key] = { source: key, count: 0, advanced: 0, converted: 0, amount: 0 };
       map[key].count += 1;
+      if (statusOf(row) !== 'initial_contact') map[key].advanced += 1;
       if (statusOf(row) === 'converted') {
         map[key].converted += 1;
         map[key].amount += parseAmount(row.contract_amount);
@@ -651,7 +982,8 @@ const cloudObject = {
         followed: rows.filter((row) => hasProgress(row)).length,
         today_new: rows.filter((row) => isToday(row._add_time)).length,
         today_followup: rows.reduce((count, row) => count + getManualRecords(row).filter((record) => isToday(record.contact_time)).length, 0),
-        month_converted: rows.filter((row) => statusOf(row) === 'converted' && Number(row.last_edit_time || 0) >= monthStart).length,
+        // 本月签单必须以“已签单”进度的发生时间为准，不能用客户资料最后编辑时间代替。
+        month_converted: rows.filter(hasMonthConverted).length,
         contract_amount: rows.filter((row) => statusOf(row) === 'converted').reduce((total, row) => total + parseAmount(row.contract_amount), 0),
         conversion_rate: rows.length ? Math.round((rows.filter((row) => statusOf(row) === 'converted').length / rows.length) * 100) : 0,
       },
@@ -695,13 +1027,17 @@ const cloudObject = {
           today_assigned: todayAssignedRows.length,
           effective_consult: todayEffectiveRows.length,
           invalid_customers: todayInvalidRows.length,
-          duplicate_customers: 0,
           converted_feedback: todayConvertedRows.length,
+          month_new: monthNewRows.length,
+          month_advanced: monthAdvancedRows.length,
+          month_converted: monthConvertedRows.length,
+          month_refunded: monthRefundedRows.length,
+          month_contract_amount: monthConvertedRows.reduce((total, row) => total + parseAmount(row.contract_amount), 0),
         },
         flow: [
-          { key: 'assigned', label: '新增并分发咨询师', value: todayAssignedRows.length },
-          { key: 'advanced', label: '状态已推进', value: todayRows.filter((row) => hasStatusAdvanced(row)).length },
-          { key: 'converted', label: '已成交', value: todayConvertedRows.length },
+          { key: 'assigned', label: '今日新增并分发', value: todayAssignedRows.length },
+          { key: 'advanced', label: '今日有进度客户', value: todayAdvancedRows.length },
+          { key: 'converted', label: '今日签单客户', value: todayConvertedRows.length },
         ],
         consultant_stats: consultantCandidates.map((consultant) => {
           const stat = consultantStatMap[consultant.consultant_id] || consultantStatMap[consultant.consultant_name] || {};
@@ -720,12 +1056,11 @@ const cloudObject = {
           ...item,
           conversion_rate: item.count ? Math.round((item.converted / item.count) * 1000) / 10 : 0,
         })),
-        quality_stats: [
-          { key: 'high', label: '高意向', value: todayRows.filter((row) => ['converted', 'invited', 'communicating_positive'].includes(statusOf(row))).length },
-          { key: 'normal', label: '普通咨询', value: todayRows.filter((row) => ['initial_contact', 'communicating_difficult'].includes(statusOf(row))).length },
-          { key: 'low', label: '低意向', value: todayRows.filter((row) => statusOf(row) === 'not_interested').length },
-          { key: 'invalid', label: '无效', value: todayRows.filter((row) => statusOf(row) === 'refunded').length },
-        ],
+        quality_stats: customerQualityOptions.map((quality) => ({
+          key: quality.value,
+          label: quality.label,
+          value: todayRows.filter((row) => (statusQualityMap[statusOf(row)] || 'normal') === quality.value).length,
+        })),
         recent_customers: todayRows.slice(0, 8).map(getCustomerSummary),
         value_summary: {
           month_new: rows.filter((row) => Number(row._add_time || 0) >= monthStart).length,
@@ -961,6 +1296,9 @@ const cloudObject = {
       existingCustomer = existingRes.data && existingRes.data[0];
       if (!existingCustomer) return { code: -1, msg: '客户不存在或无权编辑' };
       if (existingCustomer.is_deleted) return { code: -1, msg: '已删除客户不可编辑，请先恢复客户信息' };
+      if (!admin && source !== undefined && source !== null && !sameCustomerSource(source, existingCustomer.source)) {
+        return { code: -1, msg: '客户来源创建后不可修改，如需调整请联系管理员' };
+      }
       if (!leadProviderUser && syncedStatus !== normalizeCustomerStatus(existingCustomer.status)) {
         return { code: -1, msg: '客户创建后不能直接修改状态，请在进度记录中修改' };
       }

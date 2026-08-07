@@ -507,6 +507,9 @@ util.checkCurrentPagePermission = function (obj = {}) {
   // 如果页面不需要登录，则不需要检查菜单权限
   let pageNeedLogin = util.checkNeedLogin({ url: pagePath });
   if (!pageNeedLogin) return true;
+  // 超级管理员拥有后台全部页面权限，不受菜单缓存或菜单绑定状态影响
+  const userInfo = vk.getVuex('$user.userInfo') || {};
+  if (Array.isArray(userInfo.role) && userInfo.role.indexOf('admin') > -1) return true;
   let menuList = vk.getVuex('$app.menuList') || [];
   let hasPermission = menuList.some((item) => item.url && item.url.split('?')[0] === pagePath);
   if (!hasPermission) {

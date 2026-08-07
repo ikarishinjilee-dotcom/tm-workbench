@@ -2,7 +2,7 @@
   <el-popover v-model="visible" placement="bottom-end" width="360" trigger="click" popper-class="message-center-popper">
     <view class="message-center__panel">
       <view class="message-center__panel-header">
-        <text class="message-center__panel-title">消息提醒</text>
+        <text class="message-center__panel-title">消息中心</text>
         <el-button v-if="unreadCount" type="text" size="mini" @click="markAllRead">全部已读</el-button>
       </view>
       <view v-if="localMessages.length" class="message-center__list">

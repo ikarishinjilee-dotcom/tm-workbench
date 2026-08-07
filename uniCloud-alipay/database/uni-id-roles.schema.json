@@ -39,6 +39,16 @@
       "title": "备注",
       "bsonType": "string"
     },
+    "lead_permissions": {
+      "title": "线索管理权限",
+      "bsonType": "array",
+      "arrayType": "string"
+    },
+    "lead_sources": {
+      "title": "线索来源范围",
+      "bsonType": "array",
+      "arrayType": "string"
+    },
     "stats_count_info": {
       "title": "展示用",
       "bsonType": "object",

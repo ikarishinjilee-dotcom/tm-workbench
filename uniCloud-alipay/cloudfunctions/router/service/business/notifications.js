@@ -5,17 +5,31 @@ const cloudObject = {
   isCloudObject: true,
 
   getList: async function (data = {}) {
-    const { uid } = this.getClientInfo();
+    const { uid, userInfo = {} } = this.getClientInfo();
     if (!uid) return { code: -1, msg: '请先登录' };
     const db = uniCloud.database();
+    const roleValues = [userInfo.role, userInfo.roles, userInfo.role_id, userInfo.roleIds]
+      .flatMap((value) => Array.isArray(value) ? value : [value])
+      .map((value) => typeof value === 'object' && value ? value.role_id || value.value || value.name : value)
+      .filter(Boolean)
+      .map((value) => String(value));
+    const notificationWhere = { recipient_id: uid };
+    if (roleValues.includes('admin')) {
+      notificationWhere.type = db.command.in([
+        'customer_distribution',
+        'customer_redispatch',
+        'customer_transfer',
+        'customer_followup_key_event',
+      ]);
+    }
     const pageSize = Math.min(Math.max(Number(data.page_size) || 50, 1), 100);
     const result = await db.collection('tm-notifications')
-      .where({ recipient_id: uid })
+      .where(notificationWhere)
       .orderBy('create_time', 'desc')
       .limit(pageSize)
       .get();
     const unreadResult = await db.collection('tm-notifications')
-      .where({ recipient_id: uid, read: false })
+      .where({ ...notificationWhere, read: false })
       .count();
     const rows = (result.data || []).map((item) => {
       // 修复早期转移通知未写入原咨询师名称的问题，优先使用已保存的操作人名称展示。
@@ -51,10 +65,25 @@ const cloudObject = {
   },
 
   markAllRead: async function () {
-    const { uid } = this.getClientInfo();
+    const { uid, userInfo = {} } = this.getClientInfo();
     if (!uid) return { code: -1, msg: '请先登录' };
-    const result = await uniCloud.database().collection('tm-notifications')
-      .where({ recipient_id: uid, read: false })
+    const db = uniCloud.database();
+    const roleValues = [userInfo.role, userInfo.roles, userInfo.role_id, userInfo.roleIds]
+      .flatMap((value) => Array.isArray(value) ? value : [value])
+      .map((value) => typeof value === 'object' && value ? value.role_id || value.value || value.name : value)
+      .filter(Boolean)
+      .map((value) => String(value));
+    const notificationWhere = { recipient_id: uid, read: false };
+    if (roleValues.includes('admin')) {
+      notificationWhere.type = db.command.in([
+        'customer_distribution',
+        'customer_redispatch',
+        'customer_transfer',
+        'customer_followup_key_event',
+      ]);
+    }
+    const result = await db.collection('tm-notifications')
+      .where(notificationWhere)
       .update({ read: true });
     return { code: 0, num: result.updated || 0, msg: '消息已全部读' };
   },

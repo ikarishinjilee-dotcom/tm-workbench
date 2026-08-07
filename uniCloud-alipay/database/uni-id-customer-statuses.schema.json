@@ -1,0 +1,46 @@
+{
+  "bsonType": "object",
+  "required": ["value", "label", "built_in", "sort"],
+  "properties": {
+    "_id": { "title": "ID" },
+    "_add_time": {
+      "title": "添加时间",
+      "bsonType": "timestamp",
+      "forceDefaultValue": { "$env": "now" }
+    },
+    "_update_time": {
+      "title": "更新时间",
+      "bsonType": "timestamp"
+    },
+    "value": {
+      "title": "状态编码",
+      "bsonType": "string",
+      "unique": true
+    },
+    "label": {
+      "title": "状态名称",
+      "bsonType": "string"
+    },
+    "built_in": {
+      "title": "是否内置",
+      "bsonType": "bool",
+      "defaultValue": false
+    },
+    "enabled": {
+      "title": "是否启用",
+      "bsonType": "bool",
+      "defaultValue": true
+    },
+    "sort": {
+      "title": "排序",
+      "bsonType": "int",
+      "defaultValue": 100
+    },
+    "aliases": {
+      "title": "历史名称",
+      "bsonType": "array",
+      "items": { "bsonType": "string" }
+    }
+  },
+  "version": "0.0.1"
+}

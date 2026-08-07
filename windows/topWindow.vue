@@ -150,10 +150,12 @@
       this.checkMenuCollapse();
       this.checkMenuTabs();
       if (this.appInitedCom) this.loadMessages();
+      uni.$on('notifications-changed', this.loadMessages);
       this.messageTimer = setInterval(() => this.loadMessages(), 60000);
     },
     beforeDestroy() {
       if (this.messageTimer) clearInterval(this.messageTimer);
+      uni.$off('notifications-changed', this.loadMessages);
     },
     methods: {
       // 跳转登录页
@@ -208,10 +210,15 @@
         });
       },
       handleMessageClick(message) {
-        if (message && (message._id || message.id)) {
+        const messageId = message && (message._id || message.id);
+        if (messageId) {
+          // 先更新本地列表，让顶部铃铛立即消除角标，再同步后端。
+          this.messageMessages = this.messageMessages.map((item) => ((item._id || item.id) === messageId ? { ...item, read: true } : item));
+        }
+        if (messageId) {
           this.vk.callFunction({
             url: 'business/notifications.markRead',
-            data: { notification_id: message._id || message.id },
+            data: { notification_id: messageId },
           });
         }
         let route = (message && message.route) || '';

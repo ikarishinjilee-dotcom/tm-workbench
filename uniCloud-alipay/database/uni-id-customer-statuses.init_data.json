@@ -1,0 +1,58 @@
+[
+  {
+    "value": "initial_contact",
+    "label": "初步沟通",
+    "built_in": true,
+    "enabled": true,
+    "sort": 10,
+    "aliases": ["初步沟通"]
+  },
+  {
+    "value": "communicating_positive",
+    "label": "沟通中(能转化)",
+    "built_in": true,
+    "enabled": true,
+    "sort": 20,
+    "aliases": ["沟通中(能转化)"]
+  },
+  {
+    "value": "communicating_difficult",
+    "label": "沟通中(难转化)",
+    "built_in": true,
+    "enabled": true,
+    "sort": 30,
+    "aliases": ["沟通中(难转化)"]
+  },
+  {
+    "value": "invited",
+    "label": "已邀约",
+    "built_in": true,
+    "enabled": true,
+    "sort": 40,
+    "aliases": ["已邀约"]
+  },
+  {
+    "value": "converted",
+    "label": "已签单",
+    "built_in": true,
+    "enabled": true,
+    "sort": 50,
+    "aliases": ["已转化", "已签单"]
+  },
+  {
+    "value": "refunded",
+    "label": "已退单",
+    "built_in": true,
+    "enabled": true,
+    "sort": 60,
+    "aliases": ["已退单"]
+  },
+  {
+    "value": "not_interested",
+    "label": "不考虑",
+    "built_in": true,
+    "enabled": true,
+    "sort": 70,
+    "aliases": ["不考虑"]
+  }
+]

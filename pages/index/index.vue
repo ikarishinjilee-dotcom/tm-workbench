@@ -14,8 +14,8 @@
           </view>
         </view>
 
-        <view class="metric-grid">
-          <view v-for="item in metricCards" :key="item.key" class="dashboard-card metric-card" :class="item.tone">
+        <view class="metric-grid" :class="{ 'metric-grid--lead-provider': isLiveTeacherDashboard }">
+          <view v-for="item in metricCards" :key="item.key" class="dashboard-card metric-card" :class="[item.tone, { 'metric-card--clickable': metricCardClickable(item) }]" @click="handleMetricClick(item)">
             <view class="metric-top"><view class="metric-icon"><i :class="item.icon"></i></view><view class="metric-label">{{ item.label }}</view></view>
             <view class="metric-value">{{ item.value }}</view>
             <view class="metric-caption">{{ item.caption }}</view>
@@ -24,36 +24,35 @@
 
         <template v-if="isLiveTeacherDashboard">
           <view class="dashboard-card section-card live-flow-card">
-            <view class="section-heading"><view><view class="section-title"><i class="el-icon-connection"></i>今日客户流转</view><view class="section-note">直播/投流新增时必须同步分发咨询师，后续按客户状态推进统计</view></view></view>
+            <view class="section-heading"><view><view class="section-title"><i class="el-icon-connection"></i>今日客户动态</view><view class="section-note">按今日发生的业务动作独立统计，不代表同一批客户的转化漏斗</view></view></view>
             <view class="live-flow">
-              <view v-for="(step, index) in liveDashboard.flow" :key="step.key" class="live-flow-step" :class="`live-flow-${step.key}`">
+              <view v-for="step in liveDashboard.flow" :key="step.key" class="live-flow-step" :class="`live-flow-${step.key}`">
                 <view class="live-flow-value">{{ step.value }}</view>
                 <view class="live-flow-label">{{ step.label }}</view>
-                <i v-if="index < liveDashboard.flow.length - 1" class="el-icon-arrow-right live-flow-arrow"></i>
               </view>
             </view>
           </view>
 
           <view class="content-grid">
             <view class="dashboard-card section-card live-table-card">
-              <view class="section-heading"><view><view class="section-title"><i class="el-icon-user-solid"></i>咨询师分配效果</view><view class="section-note">状态推进=客户状态已不是“初步沟通”</view></view></view>
+              <view class="section-heading"><view><view class="section-title"><i class="el-icon-user-solid"></i>咨询师分配效果</view><view class="section-note">推进率只统计今日新接收客户；签单统计本月实际成交客户</view></view></view>
               <view class="live-consultant-table">
-                <view class="live-table-row live-table-head"><text>咨询师</text><text>今日接收</text><text>状态推进</text><text>成交</text><text>推进率</text></view>
+                <view class="live-table-row live-table-head"><text>咨询师</text><text>今日接收</text><text>今日推进</text><text>本月签单</text><text>推进率</text></view>
                 <view v-for="item in liveDashboard.consultant_stats" :key="item.consultant_id || item.consultant_name" class="live-table-row">
-                  <text class="live-table-name">{{ item.consultant_name }}</text><text>{{ item.received }}</text><text>{{ item.followed }}</text><text>{{ item.converted }}</text><text>{{ item.followup_rate }}%</text>
+                  <text class="live-table-name">{{ item.consultant_name }}</text><text>{{ item.received }}</text><text>{{ item.followed }}</text><text>{{ item.month_converted }}</text><text>{{ item.followup_rate }}%</text>
                 </view>
                 <view v-if="!liveDashboard.consultant_stats.length" class="empty-state"><i class="el-icon-user"></i>今日暂无新增客户</view>
               </view>
             </view>
 
             <view class="dashboard-card section-card live-source-card">
-              <view class="section-heading"><view><view class="section-title"><i class="el-icon-pie-chart"></i>客户来源分析</view><view class="section-note">按今日新增客户的来源统计数量，同时看该来源当天成交和转化率</view></view></view>
+              <view class="section-heading"><view><view class="section-title"><i class="el-icon-pie-chart"></i>客户来源累计效果</view><view class="section-note">按来源累计统计客户推进和签单情况</view></view></view>
               <view class="live-source-list">
-                <view v-for="item in liveDashboard.source_stats" :key="item.source" class="live-source-row">
-                  <view><view class="live-source-name">{{ formatSourceLabel(item.source) }}</view><view class="live-source-meta">成交 {{ item.converted }} 个 · 转化率 {{ item.conversion_rate }}%</view></view>
+                <view v-for="item in liveDashboard.source_stats" :key="item.source" class="live-source-row live-source-row--clickable" @click="openSourceCustomers(item.source)">
+                  <view><view class="live-source-name">{{ formatSourceLabel(item.source) }}</view><view class="live-source-meta">客户 {{ item.count }} 个 · 已推进 {{ item.advanced }} 个 · 已签单 {{ item.converted }} 个 · 签单率 {{ item.conversion_rate }}%</view></view>
                   <view class="live-source-count">{{ item.count }}</view>
                 </view>
-                <view v-if="!liveDashboard.source_stats.length" class="empty-state"><i class="el-icon-pie-chart"></i>今日暂无来源数据</view>
+                <view v-if="!liveDashboard.source_stats.length" class="empty-state"><i class="el-icon-pie-chart"></i>暂无来源数据</view>
               </view>
             </view>
           </view>
@@ -67,7 +66,7 @@
               <view class="live-value-summary">
                 <view><text>本月新增客户</text><strong>{{ liveDashboard.value_summary.month_new }}</strong></view>
                 <view><text>累计成交</text><strong>{{ liveDashboard.value_summary.converted }}</strong></view>
-                <view><text>直播贡献成交金额</text><strong>{{ formatAmount(liveDashboard.value_summary.contract_amount) }}</strong></view>
+                <view><text>有效签单金额</text><strong>{{ formatAmount(liveDashboard.value_summary.contract_amount) }}</strong></view>
               </view>
             </view>
 
@@ -87,7 +86,7 @@
         <template v-else>
         <view class="dashboard-card section-card task-card">
           <view class="section-heading">
-            <view><view class="section-title"><i class="el-icon-s-promotion"></i>今日待处理</view><view class="section-note">优先处理没有跟进记录或仍处于初步沟通的客户</view></view>
+            <view><view class="section-title"><i class="el-icon-s-promotion"></i>{{ taskPanelTitle }}</view><view class="section-note">{{ taskPanelSubtitle }}</view></view>
             <view class="section-count">{{ todayTasks.length }} 位</view>
           </view>
           <view v-if="todayTasks.length" class="task-list">
@@ -102,8 +101,43 @@
           <view v-else class="empty-state"><i class="el-icon-circle-check"></i>暂无需要优先处理的客户</view>
         </view>
 
+        <view v-if="isAdmin" class="content-grid admin-analysis-grid">
+          <view class="dashboard-card section-card live-quality-card">
+            <view class="section-heading"><view><view class="section-title"><i class="el-icon-medal"></i>客户质量分析</view><view class="section-note">按全部客户及状态质量分类统计 · 总计 {{ summary.total }} 位客户</view></view></view>
+            <view class="live-quality-grid">
+              <view v-for="item in liveDashboard.quality_stats" :key="`admin-${item.key}`" class="live-quality-item" :class="`live-quality-${item.key}`"><view class="live-quality-value">{{ item.value }}</view><view class="live-quality-label">{{ item.label }}</view></view>
+            </view>
+            <view class="live-value-summary">
+              <view><text>本月新增客户</text><strong>{{ liveDashboard.value_summary.month_new }}</strong></view>
+              <view><text>本月签单客户</text><strong>{{ summary.month_converted }}</strong></view>
+              <view><text>有效签单金额</text><strong>{{ formatAmount(summary.contract_amount) }}</strong></view>
+            </view>
+          </view>
+
+          <view class="dashboard-card section-card live-source-card">
+            <view class="section-heading"><view><view class="section-title"><i class="el-icon-pie-chart"></i>客户来源累计效果</view><view class="section-note">按全部来源累计统计客户推进和签单情况</view></view></view>
+            <view class="live-source-list">
+              <view v-for="item in liveDashboard.source_stats" :key="`admin-${item.source}`" class="live-source-row live-source-row--clickable" @click="openSourceCustomers(item.source)">
+                <view><view class="live-source-name">{{ formatSourceLabel(item.source) }}</view><view class="live-source-meta">客户 {{ item.count }} 个 · 已推进 {{ item.advanced }} 个 · 已签单 {{ item.converted }} 个 · 签单率 {{ item.conversion_rate }}%</view></view>
+                <view class="live-source-count">{{ item.count }}</view>
+              </view>
+              <view v-if="!liveDashboard.source_stats.length" class="empty-state"><i class="el-icon-pie-chart"></i>暂无来源数据</view>
+            </view>
+          </view>
+        </view>
+
         <view class="content-grid">
-          <view class="dashboard-card section-card funnel-card">
+          <view v-if="isAdmin" class="dashboard-card section-card team-card">
+            <view class="section-heading"><view><view class="section-title"><i class="el-icon-user-solid"></i>咨询师工作情况</view><view class="section-note">按当前可见客户统计各咨询师的接收、推进和本月签单</view></view><el-button type="text" size="small" @click="openCustomers()">查看客户</el-button></view>
+            <view class="live-consultant-table team-consultant-table">
+              <view class="live-table-row live-table-head"><text>咨询师</text><text>今日接收</text><text>今日推进</text><text>本月签单</text><text>推进率</text></view>
+              <view v-for="item in liveDashboard.consultant_stats" :key="`team-${item.consultant_id || item.consultant_name}`" class="live-table-row">
+                <text class="live-table-name">{{ item.consultant_name }}</text><text>{{ item.received }}</text><text>{{ item.followed }}</text><text>{{ item.month_converted }}</text><text>{{ item.followup_rate }}%</text>
+              </view>
+              <view v-if="!liveDashboard.consultant_stats.length" class="empty-state"><i class="el-icon-user"></i>暂无咨询师数据</view>
+            </view>
+          </view>
+          <view v-else class="dashboard-card section-card funnel-card">
             <view class="section-heading"><view><view class="section-title"><i class="el-icon-s-operation"></i>客户转化漏斗</view><view class="section-note">按当前客户状态统计</view></view><el-button type="text" size="small" @click="openCustomers()">查看客户</el-button></view>
             <view class="funnel-list">
               <view v-for="(item, index) in funnelRows" :key="item.value" class="funnel-row">
@@ -137,8 +171,8 @@
           </view>
 
           <view class="dashboard-card section-card performance-card">
-            <view class="section-heading"><view><view class="section-title"><i class="el-icon-trophy"></i>我的业绩</view><view class="section-note">基于当前客户数据累计统计</view></view></view>
-            <view class="performance-grid"><view class="performance-item" @click="openDashboardCustomerList('month_converted')"><view class="performance-value">{{ summary.month_converted }}</view><view class="performance-label">本月编辑为已签单</view></view><view class="performance-item" @click="openDashboardCustomerList('converted')"><view class="performance-value">{{ summary.conversion_rate }}%</view><view class="performance-label">当前转化率</view></view><view class="performance-item" @click="openDashboardCustomerList('contract_amount')"><view class="performance-value">{{ formatAmount(summary.contract_amount) }}</view><view class="performance-label">累计合同金额</view></view></view>
+            <view class="section-heading"><view><view class="section-title"><i class="el-icon-trophy"></i>{{ performanceTitle }}</view><view class="section-note">{{ performanceSubtitle }}</view></view></view>
+            <view class="performance-grid"><view class="performance-item" @click="openDashboardCustomerList('month_converted')"><view class="performance-value">{{ summary.month_converted }}</view><view class="performance-label">本月签单</view></view><view class="performance-item" @click="openDashboardCustomerList('converted')"><view class="performance-value">{{ summary.conversion_rate }}%</view><view class="performance-label">{{ performanceConversionLabel }}</view></view><view class="performance-item" @click="openDashboardCustomerList('contract_amount')"><view class="performance-value">{{ formatAmount(summary.contract_amount) }}</view><view class="performance-label">有效签单金额</view></view></view>
           </view>
         </view>
         </template>
@@ -218,6 +252,7 @@
         messageTab: 'customer',
         summary: { total: 0, today_new: 0, converted: 0, today_followup: 0, month_converted: 0, contract_amount: 0, conversion_rate: 0 },
         statusDistribution: [],
+        statusOptions: [],
         todayTasks: [],
         focusCustomers: [],
         reminders: { need_followup: 0, stale_7d: 0, stale_15d: 0 },
@@ -225,7 +260,7 @@
         performanceCustomers: { month_converted: [], converted: [] },
         customerListDialog: { show: false, title: '', rows: [], showAmount: false },
         liveDashboard: {
-          overview: { today_new: 0, today_assigned: 0, effective_consult: 0, invalid_customers: 0, duplicate_customers: 0, converted_feedback: 0 },
+          overview: { today_new: 0, today_assigned: 0, effective_consult: 0, invalid_customers: 0, converted_feedback: 0, month_new: 0, month_advanced: 0, month_converted: 0, month_refunded: 0, month_contract_amount: 0 },
           flow: [],
           consultant_stats: [],
           source_stats: [],
@@ -246,21 +281,30 @@
       metricCards() {
         if (this.isLiveTeacherDashboard) {
           return [
-            { key: 'today_new', label: '新增客户', value: this.liveDashboard.overview.today_new, caption: '今日线索', icon: 'el-icon-plus', tone: 'metric-cyan' },
-            { key: 'today_assigned', label: '今日已分发', value: this.liveDashboard.overview.today_assigned, caption: '已进入咨询师客户池', icon: 'el-icon-s-claim', tone: 'metric-blue' },
-            { key: 'effective_consult', label: '有效咨询', value: this.liveDashboard.overview.effective_consult, caption: '排除无效与退单', icon: 'el-icon-success', tone: 'metric-green' },
-            { key: 'invalid_customers', label: '无效客户', value: this.liveDashboard.overview.invalid_customers, caption: '不感兴趣或退单', icon: 'el-icon-warning-outline', tone: 'metric-orange' },
-            { key: 'duplicate_customers', label: '重复客户', value: this.liveDashboard.overview.duplicate_customers, caption: '待接入去重记录', icon: 'el-icon-document-copy', tone: 'metric-purple' },
-            { key: 'converted_feedback', label: '成交反馈', value: this.liveDashboard.overview.converted_feedback, caption: '今日新增里已成交', icon: 'el-icon-money', tone: 'metric-red' },
+            { key: 'month_new', label: '本月新增客户', value: this.liveDashboard.overview.month_new, caption: '本月创建并分发', icon: 'el-icon-plus', tone: 'metric-cyan' },
+            { key: 'month_advanced', label: '本月有进度客户', value: this.liveDashboard.overview.month_advanced, caption: '本月产生进度记录', icon: 'el-icon-s-claim', tone: 'metric-blue' },
+            { key: 'month_converted', label: '本月签单客户', value: this.liveDashboard.overview.month_converted, caption: '本月产生签单进度', icon: 'el-icon-success', tone: 'metric-green' },
+            { key: 'month_refunded', label: '本月退单客户', value: this.liveDashboard.overview.month_refunded, caption: '本月产生退单进度', icon: 'el-icon-warning-outline', tone: 'metric-orange' },
+            { key: 'month_contract_amount', label: '有效签单金额', value: this.formatAmount(this.liveDashboard.overview.month_contract_amount), caption: '已扣除退单客户金额', icon: 'el-icon-money', tone: 'metric-red' },
+          ];
+        }
+        if (this.isAdmin) {
+          return [
+            { key: 'total', label: '全部客户', value: this.summary.total, caption: '系统当前客户总数', icon: 'el-icon-user', tone: 'metric-blue' },
+            { key: 'today_new', label: '今日新增', value: this.summary.today_new, caption: '今天新增客户', icon: 'el-icon-plus', tone: 'metric-cyan' },
+            { key: 'today_followup', label: '今日沟通记录', value: this.summary.today_followup, caption: '今天新增沟通记录', icon: 'el-icon-chat-dot-round', tone: 'metric-purple' },
+            { key: 'month_converted', label: '本月签单', value: this.summary.month_converted, caption: '本月产生签单进度的客户', icon: 'el-icon-success', tone: 'metric-green' },
+            { key: 'converted', label: '累计签单', value: this.summary.converted, caption: '当前已签单客户', icon: 'el-icon-s-data', tone: 'metric-orange' },
+          { key: 'contract_amount', label: '有效签单金额', value: this.formatAmount(this.summary.contract_amount), caption: '当前已签单客户金额，已扣除退单', icon: 'el-icon-money', tone: 'metric-red' },
           ];
         }
         return [
           { key: 'total', label: '我的客户', value: this.summary.total, caption: '当前负责客户', icon: 'el-icon-user', tone: 'metric-blue' },
-          { key: 'today_new', label: '今日新增', value: this.summary.today_new, caption: '今天新增客户', icon: 'el-icon-plus', tone: 'metric-cyan' },
+          { key: 'today_new', label: '今日分配', value: this.summary.today_new, caption: '今天进入当前客户池', icon: 'el-icon-plus', tone: 'metric-cyan' },
           { key: 'need_followup', label: '待跟进', value: this.reminders.need_followup, caption: '需要优先处理', icon: 'el-icon-s-promotion', tone: 'metric-orange' },
           { key: 'today_followup', label: '今日已沟通', value: this.summary.today_followup, caption: '今天已记录沟通', icon: 'el-icon-chat-dot-round', tone: 'metric-purple' },
           { key: 'converted', label: '已签单', value: this.summary.converted, caption: '当前已签单客户', icon: 'el-icon-success', tone: 'metric-green' },
-          { key: 'contract_amount', label: '成交金额', value: this.formatAmount(this.summary.contract_amount), caption: '当前已签单客户合同金额', icon: 'el-icon-money', tone: 'metric-red' },
+          { key: 'contract_amount', label: '有效签单金额', value: this.formatAmount(this.summary.contract_amount), caption: '当前已签单客户金额，已扣除退单', icon: 'el-icon-money', tone: 'metric-red' },
         ];
       },
       funnelRows() {
@@ -272,7 +316,7 @@
       },
       visibleMessages() {
         if (this.messageTab === 'all') return this.messages;
-        const customerMessageTypes = ['customer_distribution', 'customer_redispatch', 'customer_transfer', 'customer_followup_feedback'];
+        const customerMessageTypes = ['customer_distribution', 'customer_redispatch', 'customer_transfer', 'customer_followup_feedback', 'customer_followup_key_event'];
         return this.messages.filter((item) => customerMessageTypes.includes(item.type));
       },
       unreadCount() {
@@ -298,12 +342,19 @@
       isLiveTeacherDashboard() {
         return this.userRoles.some((role) => {
           const text = String(role);
-          return ['live_teacher', 'zhibo', '直播老师'].includes(text) || text.includes('直播');
+          return ['live_teacher', 'zhibo', '直播老师', 'traffic_teacher', 'touliu', '投流老师'].includes(text)
+            || text.includes('直播')
+            || text.includes('投流');
         });
       },
+      isAdmin() {
+        return this.userRoles.includes('admin');
+      },
       dashboardSubtitle() {
-        return this.isLiveTeacherDashboard
-          ? '关注今天来了多少客户、分给谁、跟进效果和直播获客价值。'
+        return this.isAdmin
+          ? '查看全量客户、团队推进和整体签单情况。'
+          : this.isLiveTeacherDashboard
+          ? '直播/投流老师专属数据 · 按当前账号可见来源统计本月获客和签单情况。'
           : '今天先处理最需要推进的客户，把每一次沟通都变成下一步。';
       },
       dashboardDateText() {
@@ -315,11 +366,32 @@
       primaryActionText() {
         return this.isLiveTeacherDashboard ? '分发客户' : '新增客户';
       },
+      performanceTitle() {
+        return this.isAdmin ? '整体业绩' : '我的业绩';
+      },
+      taskPanelTitle() {
+        return this.isAdmin ? '团队待处理' : '今日待处理';
+      },
+      taskPanelSubtitle() {
+        return this.isAdmin ? '优先查看团队中没有跟进记录或仍处于初步沟通的客户' : '优先处理没有跟进记录或仍处于初步沟通的客户';
+      },
+      taskPanelTitle() {
+        return this.isAdmin ? '团队待处理' : '今日待处理';
+      },
+      taskPanelSubtitle() {
+        return this.isAdmin ? '优先查看团队中没有跟进记录或仍处于初步沟通的客户' : '优先处理没有跟进记录或仍处于初步沟通的客户';
+      },
+      performanceSubtitle() {
+        return this.isAdmin ? '基于全量客户数据累计统计' : '基于当前客户数据累计统计';
+      },
+      performanceConversionLabel() {
+        return this.isAdmin ? '整体转化率' : '当前转化率';
+      },
       messagePanelTitle() {
-        return this.isLiveTeacherDashboard ? '工作提醒' : '消息中心';
+        return '消息中心';
       },
       messagePanelSubtitle() {
-        return this.isLiveTeacherDashboard ? '客户质量、咨询师接收和成交反馈会在这里提醒你' : '新客户分配会在这里提醒你';
+        return this.isLiveTeacherDashboard ? '客户分配、咨询师接收和成交反馈会在这里提醒你' : '客户分配、归属变更和关键进度会在这里提醒你';
       },
       primaryMessageTabText() {
         return this.isLiveTeacherDashboard ? '客户提醒' : '客户通知';
@@ -332,7 +404,17 @@
     methods: {
       refreshAll() {
         this.loadDashboard();
+        this.loadStatusOptions();
         this.loadMessages();
+      },
+      loadStatusOptions() {
+        vk.callFunction({
+          url: 'business/custom2.getCustomerStatusOptions',
+          data: {},
+          success: (result) => {
+            if (result && result.code === 0 && Array.isArray(result.data)) this.statusOptions = result.data;
+          },
+        });
       },
       loadDashboard() {
         vk.callFunction({ url: 'business/custom2.getDashboard', data: {}, success: (result) => {
@@ -356,7 +438,14 @@
       },
       handleMessageClick(message) {
         if (!message.read) {
-          vk.callFunction({ url: 'business/notifications.markRead', data: { notification_id: message._id } });
+          vk.callFunction({
+            url: 'business/notifications.markRead',
+            data: { notification_id: message._id },
+            success: () => {
+              // 通知顶部消息铃铛立即刷新未读数，避免首页卡片与顶部角标不同步。
+              uni.$emit('notifications-changed');
+            },
+          });
           message.read = true;
         }
         let route = message.route || '';
@@ -375,12 +464,25 @@
           need_followup: { title: '需要建立跟进的客户', rows: this.reminderCustomers.need_followup || [] },
           stale_7d: { title: '超过 7 天未跟进的客户', rows: this.reminderCustomers.stale_7d || [] },
           stale_15d: { title: '超过 15 天未跟进的客户', rows: this.reminderCustomers.stale_15d || [] },
-          month_converted: { title: '本月编辑为已签单的客户', rows: this.performanceCustomers.month_converted || [], showAmount: true },
+          month_converted: { title: '本月签单客户', rows: this.performanceCustomers.month_converted || [], showAmount: true },
           converted: { title: '当前已签单客户', rows: this.performanceCustomers.converted || [], showAmount: true },
-          contract_amount: { title: '累计合同金额对应客户', rows: this.performanceCustomers.converted || [], showAmount: true },
+          contract_amount: { title: '有效签单金额对应客户', rows: this.performanceCustomers.converted || [], showAmount: true },
         }[type];
         if (!config) return;
         this.customerListDialog = { show: true, title: config.title, rows: config.rows, showAmount: Boolean(config.showAmount) };
+      },
+      metricCardClickable(item = {}) {
+        return ['total', 'need_followup', 'today_followup', 'month_converted', 'converted', 'contract_amount'].includes(item.key);
+      },
+      handleMetricClick(item = {}) {
+        if (!this.metricCardClickable(item)) return;
+        if (['need_followup'].includes(item.key)) return this.openDashboardCustomerList(item.key);
+        if (['month_converted', 'converted', 'contract_amount'].includes(item.key)) return this.openDashboardCustomerList(item.key);
+        this.openCustomers();
+      },
+      openSourceCustomers(source) {
+        if (!source) return;
+        vk.navigateTo(`/pages/custom/records?source=${encodeURIComponent(source)}`);
       },
       openCustomers(customerId) {
         const validCustomerId = typeof customerId === 'string' || typeof customerId === 'number' ? String(customerId) : '';
@@ -399,7 +501,9 @@
         return `¥${amount.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`;
       },
       formatSourceLabel(value) {
-        return sourceLabelMap[value] || value || '未填写来源';
+        if (sourceLabelMap[value]) return sourceLabelMap[value];
+        if (String(value || '').startsWith('live_teacher_')) return '直播线索';
+        return value || '未填写来源';
       },
       formatProgressAge(customer = {}) {
         const value = customer.latest_followup_at;
@@ -409,11 +513,13 @@
         return days <= 0 ? '今天推进' : `${days}天前推进`;
       },
       isFeedbackMessage(message = {}) {
-        return message.type === 'customer_followup_feedback';
+        return ['customer_followup_feedback', 'customer_followup_key_event'].includes(message.type);
       },
       feedbackMessageParts(message = {}) {
         const rawContent = String(message.content || '');
-        const statusLabel = message.feedback_status_label || (rawContent.match(/状态：([^，,]+)/) || [])[1] || (rawContent.includes('已签单') ? '已签单' : '进度更新');
+        const rawStatusLabel = message.feedback_status_label || (rawContent.match(/状态：([^，,]+)/) || [])[1] || (rawContent.includes('已签单') ? '已签单' : '进度更新');
+        const statusOption = this.statusOptions.find((item) => item.value === message.feedback_status || item.value === rawStatusLabel);
+        const statusLabel = statusOption ? statusOption.label : rawStatusLabel;
         const contentText = message.feedback_content || (rawContent.match(/内容：([\s\S]+)$/) || [])[1] || '';
         let summary = rawContent
           .replace(/，?状态：[^，,]+/, '')
@@ -445,7 +551,10 @@
   .dashboard-hero ::v-deep .el-button:not(.el-button--primary) { border-color: #dce6f3; color: #4676c5; background: #fff; }
   .dashboard-card { padding: 20px; background: #fff; border: 1px solid #e6edf6; border-radius: 12px; box-shadow: 0 6px 20px rgba(35, 65, 105, .045); box-sizing: border-box; }
   .metric-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
+  .metric-grid--lead-provider { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .metric-card { position: relative; min-height: 126px; overflow: hidden; padding: 16px; }
+  .metric-card--clickable { cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
+  .metric-card--clickable:hover { box-shadow: 0 10px 24px rgba(50, 92, 150, .12); transform: translateY(-2px); }
   .metric-card::after { position: absolute; right: -30px; bottom: -42px; width: 115px; height: 115px; border-radius: 50%; background: rgba(91, 143, 249, .055); content: ''; }
   .metric-top { display: flex; align-items: center; gap: 8px; position: relative; z-index: 1; }
   .metric-icon { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; font-size: 15px; }
@@ -458,9 +567,10 @@
   .section-title i, .message-title i { margin-right: 8px; color: #5b8ff9; font-size: 16px; }.message-title i { color: #f5a623; }
   .section-count { padding: 5px 9px; border-radius: 6px; background: #edf4ff; color: #4c86ed; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .task-list { margin-top: 16px; }.task-row, .focus-row { display: flex; align-items: center; gap: 11px; padding: 13px 0; border-top: 1px solid #edf2f7; cursor: pointer; transition: padding .2s ease, background .2s ease; }.task-row:first-child { border-top: 0; }.task-row:hover, .focus-row:hover { margin: 0 -8px; padding-right: 8px; padding-left: 8px; border-radius: 7px; background: #f8fbff; }.task-status { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; font-size: 15px; }.task-status.first_followup { color: #ec9b2d; background: #fff5e6; }.task-status.status { color: #4c86ed; background: #edf4ff; }.task-main, .focus-main { min-width: 0; flex: 1; }.task-name, .focus-name { color: #30486b; font-size: 13px; font-weight: 600; }.task-desc, .focus-meta { margin-top: 4px; overflow: hidden; color: #8b9ab0; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.row-arrow { color: #b5c1d2; font-size: 12px; }
-  .content-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 16px; }.funnel-list, .focus-list { margin-top: 18px; }.funnel-row { display: flex; align-items: center; gap: 9px; margin-top: 13px; }.funnel-row:first-child { margin-top: 0; }.funnel-step { display: flex; align-items: center; gap: 7px; width: 125px; }.funnel-index { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; background: #f0f5fc; color: #7690b2; font-size: 10px; }.funnel-label { color: #536581; font-size: 11px; white-space: nowrap; }.funnel-track { flex: 1; height: 8px; overflow: hidden; border-radius: 99px; background: #edf2f7; }.funnel-bar { height: 100%; min-width: 3px; border-radius: inherit; background: linear-gradient(90deg, #8bb5fb, #4f85ee); }.funnel-bar--4 { background: linear-gradient(90deg, #5ed0a0, #27ae75); }.funnel-count { width: 25px; color: #405675; font-size: 12px; font-weight: 600; text-align: right; }.focus-row { padding: 11px 0; }.focus-row ::v-deep .el-tag { flex: 0 0 auto; }.focus-star { margin-right: 4px; color: #f5a623; }.focus-meta { white-space: nowrap; }
+  .content-grid { display: grid; grid-template-columns: 1.05fr .95fr; align-items: stretch; gap: 16px; }.funnel-list, .focus-list { margin-top: 18px; }.funnel-row { display: flex; align-items: center; gap: 9px; margin-top: 13px; }.funnel-row:first-child { margin-top: 0; }.funnel-step { display: flex; align-items: center; gap: 7px; width: 125px; }.funnel-index { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; background: #f0f5fc; color: #7690b2; font-size: 10px; }.funnel-label { color: #536581; font-size: 11px; white-space: nowrap; }.funnel-track { flex: 1; height: 8px; overflow: hidden; border-radius: 99px; background: #edf2f7; }.funnel-bar { height: 100%; min-width: 3px; border-radius: inherit; background: linear-gradient(90deg, #8bb5fb, #4f85ee); }.funnel-bar--4 { background: linear-gradient(90deg, #5ed0a0, #27ae75); }.funnel-count { width: 25px; color: #405675; font-size: 12px; font-weight: 600; text-align: right; }.focus-row { padding: 11px 0; }.focus-row ::v-deep .el-tag { flex: 0 0 auto; }.focus-star { margin-right: 4px; color: #f5a623; }.focus-meta { white-space: nowrap; }
   .live-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }.live-flow-step { position: relative; padding: 18px 12px; border-radius: 14px; background: linear-gradient(135deg, #f7fbff, #eef6ff); text-align: center; }.live-flow-value { color: #172b4d; font-size: 25px; font-weight: 800; }.live-flow-label { margin-top: 7px; color: #6d7f99; font-size: 12px; }.live-flow-arrow { position: absolute; top: 50%; right: -14px; z-index: 1; color: #8db7f2; transform: translateY(-50%); }.live-consultant-table, .live-source-list, .live-recent-list { margin-top: 18px; }.live-table-row { display: grid; grid-template-columns: minmax(82px, 1.2fr) repeat(4, minmax(42px, .7fr)); align-items: center; gap: 8px; padding: 11px 0; border-bottom: 1px solid #edf2f7; color: #536581; font-size: 12px; }.live-table-head { color: #9aa9bf; font-size: 11px; font-weight: 600; }.live-table-name { overflow: hidden; color: #263b5d; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }.live-source-row, .live-recent-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid #edf2f7; cursor: pointer; }.live-source-row { cursor: default; }.live-source-name, .live-recent-name { color: #263b5d; font-size: 13px; font-weight: 700; }.live-source-meta, .live-recent-meta { margin-top: 5px; color: #8b9ab0; font-size: 11px; }.live-source-count { margin-left: auto; color: #2f7ce8; font-size: 20px; font-weight: 800; }.live-quality-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }.live-quality-item { padding: 13px 10px; border-radius: 12px; text-align: center; }.live-quality-high { background: #f6ffed; }.live-quality-normal { background: #edf4ff; }.live-quality-low { background: #fff8ed; }.live-quality-invalid { background: #fff2f1; }.live-quality-value { color: #263b5d; font-size: 20px; font-weight: 800; }.live-quality-label { margin-top: 5px; color: #7b8ba6; font-size: 11px; }.live-value-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #edf2f7; }.live-value-summary view { min-width: 0; }.live-value-summary text { display: block; color: #8b9ab0; font-size: 11px; }.live-value-summary strong { display: block; margin-top: 6px; color: #172b4d; font-size: 18px; }.live-recent-row:hover { margin: 0 -8px; padding-right: 8px; padding-left: 8px; border-radius: 8px; background: #f8fbff; }.live-recent-main { min-width: 0; flex: 1; }
   .live-flow-new { background: linear-gradient(135deg, #ecfeff, #dff8fb); }.live-flow-assigned { background: linear-gradient(135deg, #eef5ff, #dfeaff); }.live-flow-advanced { background: linear-gradient(135deg, #f5f0ff, #ebe1ff); }.live-flow-converted { background: linear-gradient(135deg, #ecfdf3, #dcfce7); }.live-flow-new .live-flow-value { color: #0891b2; }.live-flow-assigned .live-flow-value { color: #2563eb; }.live-flow-advanced .live-flow-value { color: #7c3aed; }.live-flow-converted .live-flow-value { color: #16a34a; }.live-recent-consultant { color: #2563eb; font-size: 12px; font-weight: 800; }
+  .admin-analysis-grid .live-source-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }.admin-analysis-grid .live-source-row { min-width: 0; }
   .bottom-grid { margin-top: 0; }.reminder-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }.reminder-item { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 11px 8px; border-radius: 9px; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; }.reminder-item:hover, .performance-item:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(35, 65, 105, .08); }.reminder-item--orange { background: #fff8ed; }.reminder-item--red { background: #fff2f1; }.reminder-item--purple { background: #f5f1ff; }.reminder-icon { font-size: 17px; }.reminder-item--orange .reminder-icon { color: #ec9b2d; }.reminder-item--red .reminder-icon { color: #e66b6b; }.reminder-item--purple .reminder-icon { color: #8768d4; }.reminder-value { color: #263b5d; font-size: 18px; font-weight: 700; }.reminder-label { margin-top: 3px; color: #8b9ab0; font-size: 10px; white-space: nowrap; }.performance-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 19px; }.performance-item { min-width: 0; padding: 8px; border-radius: 9px; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; }.performance-value { color: #263b5d; font-size: 20px; font-weight: 700; }.performance-label { margin-top: 5px; color: #8b9ab0; font-size: 10px; line-height: 15px; }
   .message-card { position: sticky; top: 24px; display: flex; flex-direction: column; height: calc(100vh - 148px); min-height: 520px; max-height: 760px; padding: 21px 18px; overflow: hidden; border-top: 3px solid #8bb4f2; }.message-subtitle { margin-top: 5px; }.message-unread-count { display: flex; align-items: center; justify-content: center; width: 23px; height: 23px; border-radius: 50%; background: #fff1f0; color: #f04438; font-size: 11px; font-weight: 700; }.message-tabs { display: flex; gap: 4px; margin-top: 18px; padding: 3px; border-radius: 8px; background: #f3f6fa; }.message-tab { flex: 1; padding: 7px 4px; border-radius: 6px; color: #8493a9; font-size: 11px; text-align: center; cursor: pointer; }.message-tab.active { background: #fff; color: #4f85ee; box-shadow: 0 2px 6px rgba(65, 91, 130, .1); font-weight: 600; }.message-list { flex: 1; min-height: 0; margin-top: 8px; overflow-y: auto; overscroll-behavior: contain; }.message-item { display: flex; align-items: flex-start; gap: 9px; padding: 16px 0; border-bottom: 1px solid #edf2f7; cursor: pointer; }.message-item:last-child { border-bottom: 0; }.message-dot { width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: transparent; box-shadow: 0 0 0 3px transparent; flex: 0 0 auto; }.message-item.is-unread .message-dot { background: #f04438; box-shadow: 0 0 0 3px #fff1f0; }.message-main { min-width: 0; flex: 1; }.message-item-title { color: #263b5d; font-size: 12px; font-weight: 700; line-height: 18px; }.message-unread { margin-left: 6px; padding: 2px 4px; border-radius: 4px; background: #fff1f0; color: #f04438; font-size: 10px; font-weight: 400; }.message-content { margin-top: 5px; color: #73839d; font-size: 11px; line-height: 18px; }.message-time { margin-top: 5px; color: #9aa9bf; font-size: 10px; }.message-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; color: #a1afc2; font-size: 12px; }.message-empty i { margin-bottom: 8px; color: #c4d0df; font-size: 24px; }.message-footer { flex: 0 0 auto; margin-top: 14px; padding-top: 14px; border-top: 1px solid #edf2f7; color: #7b8ba6; font-size: 11px; text-align: center; cursor: pointer; }.message-footer i { margin-right: 5px; color: #5b8ff9; }
   .message-feedback { margin-top: 6px; color: #73839d; font-size: 11px; line-height: 18px; }.message-feedback-summary { color: #52647d; }.message-feedback-tags { display: flex; align-items: center; gap: 6px; margin-top: 7px; }.message-feedback-label { padding: 2px 5px; border-radius: 5px; background: #edf4ff; color: #4676c5; font-size: 10px; font-weight: 700; }.message-feedback-status { padding: 2px 7px; border-radius: 999px; background: #ecfdf3; color: #16a34a; font-size: 11px; font-weight: 800; }.message-feedback-content { margin-top: 7px; padding: 7px 8px; border-radius: 8px; background: #f8fbff; color: #263b5d; font-size: 11px; font-weight: 600; line-height: 18px; }.message-feedback-content text { margin-right: 6px; padding: 2px 5px; border-radius: 5px; background: #fff7ed; color: #ea580c; font-size: 10px; font-weight: 800; }
@@ -473,7 +583,11 @@
   ::v-deep .dashboard-customer-dialog .el-dialog__headerbtn { top: 23px !important; right: 22px !important; }
   @media screen and (max-width: 1180px) { .metric-grid { grid-template-columns: repeat(3, 1fr); }.dashboard-layout { grid-template-columns: minmax(0, 2.6fr) minmax(260px, 1fr); } }
   @media screen and (max-width: 900px) { .page-body { padding: 16px; }.dashboard-layout { grid-template-columns: 1fr; }.message-card { position: static; height: 420px; min-height: 360px; max-height: none; }.metric-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media screen and (max-width: 620px) { .dashboard-title { font-size: 20px; }.dashboard-hero { align-items: flex-start; flex-direction: column; }.hero-actions { width: 100%; }.hero-actions ::v-deep .el-button { flex: 1; }.metric-grid, .content-grid { grid-template-columns: 1fr; }.reminder-grid { grid-template-columns: 1fr; }.performance-grid { gap: 8px; }.funnel-step { width: 113px; }.funnel-label { font-size: 10px; } }
+  .metric-card--clickable { cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
+  .metric-card--clickable:hover { box-shadow: 0 10px 24px rgba(50, 92, 150, .12); transform: translateY(-2px); }
+  .live-source-row--clickable { cursor: pointer !important; }
+  .live-source-row--clickable:hover { margin: 0 -8px; padding-right: 8px; padding-left: 8px; border-radius: 8px; background: #f8fbff; }
+  @media screen and (max-width: 620px) { .dashboard-title { font-size: 20px; }.dashboard-hero { align-items: flex-start; flex-direction: column; }.hero-actions { width: 100%; }.hero-actions ::v-deep .el-button { flex: 1; }.metric-grid, .content-grid { grid-template-columns: 1fr; }.admin-analysis-grid .live-source-list { grid-template-columns: 1fr; }.reminder-grid { grid-template-columns: 1fr; }.performance-grid { gap: 8px; }.funnel-step { width: 113px; }.funnel-label { font-size: 10px; } }
 </style>
 
 <style lang="scss">

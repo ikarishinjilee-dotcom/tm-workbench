@@ -1,0 +1,38 @@
+{
+  "bsonType": "object",
+  "required": ["value", "label", "built_in", "sort"],
+  "properties": {
+    "_id": {
+      "title": "ID"
+    },
+    "_add_time": {
+      "title": "添加时间",
+      "bsonType": "timestamp",
+      "forceDefaultValue": { "$env": "now" }
+    },
+    "_update_time": {
+      "title": "更新时间",
+      "bsonType": "timestamp"
+    },
+    "value": {
+      "title": "来源编码",
+      "bsonType": "string",
+      "unique": true
+    },
+    "label": {
+      "title": "来源名称",
+      "bsonType": "string"
+    },
+    "built_in": {
+      "title": "是否内置",
+      "bsonType": "bool",
+      "defaultValue": false
+    },
+    "sort": {
+      "title": "排序",
+      "bsonType": "int",
+      "defaultValue": 100
+    }
+  },
+  "version": "0.0.1"
+}
