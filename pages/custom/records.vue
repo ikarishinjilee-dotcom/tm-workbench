@@ -42,7 +42,7 @@
 						</view>
 					</template>
 					<template v-slot:status="{ row }">
-						<status-tag :status="row.status"></status-tag>
+						<text class="tm-status-tag" :style="getRowStatusStyle(row.status)">{{ getRowStatusLabel(row.status) }}</text>
 					</template>
 					<template v-slot:is_deleted="{ row }">
 						<el-tag v-if="row.is_deleted" type="danger" size="mini">已删除</el-tag>
@@ -1770,6 +1770,23 @@
 			},
 			formatWechatAddedLabel(value) {
 				return [true, 1, 'true', '1'].includes(value) ? '已加微信' : '未加微信';
+			},
+			// 客户状态标签：方法直接返回 inline style，绕开组件封装，确保 H5 端一定出颜色。
+			getRowStatusStyle(status) {
+				const map = {
+					initial_contact: 'background:#f2f4f7;color:#667085;border:1px solid #d9e0e8;',
+					communicating_positive: 'background:#fff7e6;color:#b76e00;border:1px solid #f5c56b;',
+					communicating_difficult: 'background:#f5f0ff;color:#7048a8;border:1px solid #c8b4ee;',
+					invited: 'background:#ecf5ff;color:#2878c8;border:1px solid #9ac8fa;',
+					converted: 'background:#edfff3;color:#18a058;border:1px solid #a8e5c0;',
+					refunded: 'background:#fff6ed;color:#c2611a;border:1px solid #f3c08a;',
+					not_interested: 'background:#fff1f1;color:#d93025;border:1px solid #f2a7a7;',
+				};
+				const base = 'display:inline-block;padding:0 8px;line-height:20px;font-size:12px;border-radius:3px;white-space:nowrap;';
+				return base + (map[status] || map.initial_contact);
+			},
+			getRowStatusLabel(status) {
+				return getCustomerStatusOption(status).label || status || '';
 			},
 			// 合同金额只能输入数字（允许小数，最多 2 位小数）。
 			filterContractAmount(value) {
