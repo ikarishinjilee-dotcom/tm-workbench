@@ -178,8 +178,12 @@
   .page-body {
     width: 100%;
     height: 100vh;
-    background: linear-gradient(rgba(0, 50, 100, 0.3), rgba(0, 50, 100, 0.3)), url('../../static/bg/006.jpg') no-repeat fixed center center;
-    background-size: cover;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(255, 113, 154, 0.35), transparent 55%),
+      radial-gradient(circle at 82% 58%, rgba(99, 102, 241, 0.35), transparent 55%),
+      radial-gradient(circle at 50% 95%, rgba(45, 212, 191, 0.22), transparent 55%),
+      linear-gradient(135deg, #1a0b3d 0%, #3a0f7a 30%, #8e1d8a 60%, #d33682 85%, #f97316 100%);
+    background-attachment: fixed;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -187,31 +191,24 @@
     position: relative;
     box-sizing: border-box;
 
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(25, 55, 109, 0.2);
-      z-index: 1;
-    }
-
-    .login-view:hover {
-      background-color: rgba(255, 255, 255, 1);
-    }
-
     .login-view {
       width: 100%;
       max-width: 420px;
-      border-radius: 7px;
-      background-color: rgba(255, 255, 255, 0.97);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
       padding: 40px 30px;
       box-sizing: border-box;
-      border: 1px solid #f5f5f5;
-      box-shadow: 6px 6px 10px 0px #888888;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 20px 60px rgba(26, 11, 61, 0.45);
       z-index: 2;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 26px 72px rgba(26, 11, 61, 0.55);
+      }
 
       ::v-deep .input .el-input__inner {
         border: 0 !important;
