@@ -180,12 +180,14 @@
     width: 100%;
     height: 100vh;
     background:
-      radial-gradient(circle at 18% 22%, rgba(34, 211, 238, 0.32), transparent 55%),
-      radial-gradient(circle at 82% 58%, rgba(99, 102, 241, 0.28), transparent 55%),
-      radial-gradient(circle at 50% 95%, rgba(16, 185, 129, 0.22), transparent 55%),
-      linear-gradient(135deg, #020617, #0c4a6e, #155e75, #0891b2, #22d3ee, #0891b2, #155e75, #0c4a6e, #020617);
-    background-size: 100% 100%, 100% 100%, 100% 100%, 400% 400%;
-    animation: gradientFlow 16s ease-in-out infinite;
+      radial-gradient(circle at 15% 18%, rgba(34, 211, 238, 0.38), transparent 50%),
+      radial-gradient(circle at 85% 22%, rgba(168, 85, 247, 0.32), transparent 55%),
+      radial-gradient(circle at 78% 70%, rgba(236, 72, 153, 0.30), transparent 55%),
+      radial-gradient(circle at 22% 78%, rgba(16, 185, 129, 0.28), transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.22), transparent 60%),
+      linear-gradient(135deg, #020617, #1e1b4b, #4c1d95, #be185d, #ec4899, #0e7490, #22d3ee, #0891b2, #4c1d95, #1e1b4b, #020617);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 600% 600%;
+    animation: gradientFlow 8s ease-in-out infinite;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -195,13 +197,19 @@
 
     @keyframes gradientFlow {
       0% {
-        background-position: 0% 0%, 0% 0%, 0% 0%, 0% 50%;
+        background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 50%;
+      }
+      25% {
+        background-position: 50% 30%, 60% 20%, 30% 50%, 40% 60%, 50% 40%, 25% 50%;
       }
       50% {
-        background-position: 0% 0%, 0% 0%, 0% 0%, 100% 50%;
+        background-position: 100% 60%, 30% 70%, 80% 30%, 70% 20%, 30% 80%, 50% 50%;
+      }
+      75% {
+        background-position: 50% 90%, 80% 50%, 20% 80%, 30% 90%, 80% 20%, 75% 50%;
       }
       100% {
-        background-position: 0% 0%, 0% 0%, 0% 0%, 0% 50%;
+        background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 50%;
       }
     }
 
