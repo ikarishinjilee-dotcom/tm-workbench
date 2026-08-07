@@ -42,7 +42,7 @@
 						</view>
 					</template>
 					<template v-slot:status="{ row }">
-						<text class="customer-status-tag" :class="getStatusTagClass(row.status)">{{ getStatusTagLabel(row.status) }}</text>
+						<text class="customer-status-tag" :style="getStatusTagStyle(row.status)">{{ getStatusTagLabel(row.status) }}</text>
 					</template>
 					<template v-slot:is_deleted="{ row }">
 						<el-tag v-if="row.is_deleted" type="danger" size="mini">已删除</el-tag>
@@ -1769,6 +1769,20 @@
 			},
 			getStatusTagClass(status) {
 				return getCustomerStatusOption(status).className || 'tm-status-tag--initial';
+			},
+			getStatusTagStyle(status) {
+				// 颜色配置表（避开 vk-data-table v-slot 中 scoped style 不可靠的问题，用 inline style 直接生效）。
+				const styleMap = {
+					'tm-status-tag--initial': 'background:#f2f4f7;color:#667085;border:1px solid #d9e0e8;',
+					'tm-status-tag--positive': 'background:#fff7e6;color:#b76e00;border:1px solid #f5c56b;',
+					'tm-status-tag--difficult': 'background:#fff7e6;color:#b76e00;border:1px solid #f5c56b;',
+					'tm-status-tag--refunded': 'background:#fff6ed;color:#c2611a;border:1px solid #f3c08a;',
+					'tm-status-tag--invited': 'background:#ecf5ff;color:#2878c8;border:1px solid #9ac8fa;',
+					'tm-status-tag--success': 'background:#edfff3;color:#18a058;border:1px solid #a8e5c0;',
+					'tm-status-tag--danger': 'background:#fff1f1;color:#d93025;border:1px solid #f2a7a7;',
+				};
+				const className = getCustomerStatusOption(status).className || 'tm-status-tag--initial';
+				return styleMap[className] || styleMap['tm-status-tag--initial'];
 			},
 			getStatusTagLabel(status) {
 				return getCustomerStatusOption(status).label || status || '';
