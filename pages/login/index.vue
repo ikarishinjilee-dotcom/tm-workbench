@@ -3,6 +3,7 @@
     <div class="login-view">
       <image class="image" :src="vk.getVuex('$app.staticUrl.navBar.logo')" mode="aspectFit"></image>
       <span class="login-title">{{ $t('vk.login.welcome') }}</span>
+      <span class="login-subtitle">提名教育工作台</span>
 
       <el-form :model="form1" status-icon :rules="rules" ref="form1" label-width="60px" class="form-view">
         <el-form-item :label="$t('vk.user.username')" prop="pass" class="form-item"
@@ -251,6 +252,15 @@
         color: #121212;
         font-size: 22px;
         letter-spacing: 2px;
+      }
+
+      .login-subtitle {
+        display: block;
+        margin-top: 6px;
+        text-align: center;
+        color: #4b5b75;
+        font-size: 14px;
+        letter-spacing: 1px;
       }
 
       .login_but {
