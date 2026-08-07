@@ -29,13 +29,15 @@
           <el-table-column prop="value" label="内部编码" min-width="280" />
           <el-table-column label="类型" width="110">
             <template slot-scope="scope">
-              <el-tag :type="scope.row.built_in ? 'info' : 'success'" size="mini">{{ scope.row.built_in ? '内置' : '自定义' }}</el-tag>
+              <el-tag v-if="isDynamicSource(scope.row)" type="warning" size="mini">直播账号</el-tag>
+              <el-tag v-else :type="scope.row.built_in ? 'info' : 'success'" size="mini">{{ scope.row.built_in ? '内置' : '自定义' }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="180" fixed="right">
             <template slot-scope="scope">
-              <el-button type="text" :size="$global.size" @click="editSource(scope.row)">编辑名称</el-button>
-              <el-button v-if="!scope.row.built_in" type="text" :size="$global.size" class="danger-text" @click="removeSource(scope.row)">删除</el-button>
+              <el-button v-if="!isDynamicSource(scope.row)" type="text" :size="$global.size" @click="editSource(scope.row)">编辑名称</el-button>
+              <el-button v-if="!isDynamicSource(scope.row) && !scope.row.built_in" type="text" :size="$global.size" class="danger-text" @click="removeSource(scope.row)">删除</el-button>
+              <span v-else-if="isDynamicSource(scope.row)" class="muted-text">账号自动</span>
             </template>
           </el-table-column>
         </el-table>
@@ -156,6 +158,9 @@ export default {
     this.loadRoles();
   },
   methods: {
+    isDynamicSource(source) {
+      return String((source && source.value) || '').startsWith('live_teacher_');
+    },
     addSource() {
       this.sourceDialog.form = { value: '', label: '', enabled: true };
       this.sourceDialog.visible = true;
@@ -207,11 +212,15 @@ export default {
         url: 'business/custom2.getLeadSourceOptions',
         data: {},
         success: (result) => {
-          if (result && result.code === 0 && Array.isArray(result.data)) {
+          if (result && result.code === 0) {
             // “live”是后台权限匹配的内部通用值，不在管理页展示（动态来源由直播老师账号自动生成）。
-            const visibleSources = result.data.filter((item) => item.value !== 'live');
-            this.sourceCatalog = visibleSources;
-            this.sourceOptions = visibleSources.map((item) => ({ value: item.value, label: item.label }));
+            const dictSources = Array.isArray(result.data) ? result.data.filter((item) => item.value !== 'live') : [];
+            // 合并直播老师账号动态来源（只读展示，标记为“直播账号”）。
+            const dynamicSources = Array.isArray(result.dynamic_source_options) ? result.dynamic_source_options : [];
+            const merged = [...dynamicSources, ...dictSources]
+              .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
+            this.sourceCatalog = merged;
+            this.sourceOptions = dictSources.map((item) => ({ value: item.value, label: item.label }));
           } else {
             this.$message.warning((result && result.msg) || '线索来源加载失败');
           }
