@@ -3257,8 +3257,7 @@
 
 		.customer-detail-summary__item.is-wide,
 		.customer-detail-summary__item--time {
-			grid-column: span 2;
-			border-right: 0;
+			grid-column: auto;
 		}
 
 		.customer-detail-fields {
