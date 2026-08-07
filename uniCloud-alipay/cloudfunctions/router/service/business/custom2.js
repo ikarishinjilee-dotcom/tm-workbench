@@ -858,12 +858,19 @@ const cloudObject = {
       }],
     });
     if (result && Array.isArray(result.rows)) {
-      result.rows = result.rows.map((row) => ({
-        ...row,
-        is_starred: isCustomerStarredBy(row, uid),
-        starred_at: getCustomerStarredAtBy(row, uid),
-        consultant_name: row.consultant_name || row.consultantUserInfo && (row.consultantUserInfo.nickname || row.consultantUserInfo.username) || '',
-      }));
+      result.rows = result.rows.map((row) => {
+        // 列表/编辑/详情统一显示最新进度对应的状态：取 followup_records 里最新一条手动记录的状态作为客户当前状态。
+        const manualRecords = Array.isArray(row.followup_records) ? row.followup_records.filter((record) => record && !record.system && !record.transfer) : [];
+        const latestManualRecord = manualRecords.sort((a, b) => (b.contact_time || b.update_time || b.create_time || 0) - (a.contact_time || a.update_time || a.create_time || 0))[0];
+        const syncedStatus = latestManualRecord ? normalizeCustomerStatus(latestManualRecord.status) : normalizeCustomerStatus(row.status);
+        return {
+          ...row,
+          status: syncedStatus,
+          is_starred: isCustomerStarredBy(row, uid),
+          starred_at: getCustomerStarredAtBy(row, uid),
+          consultant_name: row.consultant_name || row.consultantUserInfo && (row.consultantUserInfo.nickname || row.consultantUserInfo.username) || '',
+        };
+      });
       if (selectedStarred === true || selectedStarred === 'true' || selectedStarred === 1 || selectedStarred === '1') {
         result.rows = result.rows.filter((row) => row.is_starred);
       } else if (selectedStarred === false || selectedStarred === 'false' || selectedStarred === 0 || selectedStarred === '0') {
