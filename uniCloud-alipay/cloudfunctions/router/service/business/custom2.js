@@ -590,6 +590,15 @@ const cloudObject = {
       .map(getLiveTeacherSourceOption)
       .filter(Boolean)
       .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
+    // 当前用户自己的动态直播来源（如角色配了 'live' 但用户不是 live_teacher 身份，需补进下拉）
+    const ownLiveSourceOption = getLiveTeacherSourceOption(currentUserInfo);
+    const allLiveOptionsWithSelf = ownLiveSourceOption && !allLiveSourceOptions.some((item) => item.value === ownLiveSourceOption.value)
+      ? [...allLiveSourceOptions, ownLiveSourceOption]
+      : allLiveSourceOptions;
+    // 角色权限里若含 'live'（全部直播账号来源），下拉需展示该虚拟项
+    const rolesForLive = normalizeRoleList(currentUserInfo);
+    const hasLiveVirtual = rolesForLive.some((role) => role && Array.isArray(role.lead_sources) && role.lead_sources.includes('live'));
+    const liveVirtualOption = hasLiveVirtual ? { value: 'live', label: '全部直播账号来源' } : null;
     // 字典来源（默认项兜底 + 字典表）与直播老师动态来源合并，确保前端下拉框能匹配客户已使用的所有来源值。
     // 默认来源始终存在（即使字典表为空），字典项按 value 去重追加。
     let configuredSourceOptions = [];
@@ -600,13 +609,18 @@ const cloudObject = {
     }
     const defaultSourceOptions = defaultLeadSourceOptions.map(normalizeLeadSourceOption);
     const mergedSourceOptions = [
+      ...(liveVirtualOption ? [liveVirtualOption] : []),
       ...defaultSourceOptions,
       ...configuredSourceOptions,
-      ...allLiveSourceOptions,
+      ...allLiveOptionsWithSelf,
     ].filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
     const sourceOptions = admin
       ? mergedSourceOptions
       : mergedSourceOptions.filter((item) => (item.aliases || [item.value]).some((alias) => visibleSources.includes(alias)));
+    // 非 admin：若角色权限配了 'live'，下拉需保留"全部直播账号来源"虚拟项（filter 不匹配它）
+    if (!admin && liveVirtualOption && !sourceOptions.some((item) => item.value === 'live')) {
+      sourceOptions.unshift(liveVirtualOption);
+    }
     // 客户状态字典：管理员配置页可读全部状态，其他角色只读启用状态。
     let configuredCustomerStatusOptions = [];
     try {
