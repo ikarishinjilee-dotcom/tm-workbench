@@ -371,7 +371,13 @@ const isLeadProviderUser = (userInfo = {}) => {
   const identityText = identityValues.map(String).join(' ');
   return /直播|主播|投流|zhibo|touliu|live_teacher|traffic_teacher/i.test(identityText);
 };
-const isConsultantCandidate = (userInfo = {}) => !isSuperAdmin(userInfo) && !isLeadProviderUser(userInfo);
+const isConsultantCandidate = (userInfo = {}) => {
+  if (isSuperAdmin(userInfo)) return false;
+  if (isLeadProviderUser(userInfo)) return false;
+  // 运营管理员（operator）是后台管理人员，不属于咨询师，不能被分配/转移客户
+  if (normalizeRoleKeys(userInfo).includes('operator')) return false;
+  return true;
+};
 const applyCustomerAccessWhere = ({ whereJson = {}, userInfo = {}, uid, admin, _ }) => {
   if (admin) return whereJson;
   if (isLeadProviderUser(userInfo)) {
