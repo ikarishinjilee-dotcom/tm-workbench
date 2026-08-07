@@ -581,6 +581,23 @@
         color: #595959;
       }
 
+      /* 移动端顶栏：隐藏昵称，避免头像+角色+昵称+箭头总宽超出右侧空间 */
+      @media screen and (max-width: 768px) {
+        .user-info-item {
+          padding: 5px 2px;
+        }
+        .user-info-item .text-overflow {
+          display: none !important;
+        }
+        .menu-avatar {
+          margin-right: 4px;
+        }
+        .user-role-badge {
+          margin-right: 4px;
+          padding: 1px 6px;
+        }
+      }
+
       .debug {
         display: inline-block;
         position: relative;
