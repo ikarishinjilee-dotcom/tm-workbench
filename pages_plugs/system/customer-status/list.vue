@@ -195,4 +195,13 @@ export default {
   .status-empty i { margin-right: 8px; }
   .status-dialog-tip { padding: 10px 12px; border-radius: 6px; background: #f5f8fc; }
   ::v-deep .el-input-number { width: 180px; }
+
+  /* 移动端适配 */
+  @media screen and (max-width: 768px) {
+    .status-intro-card { padding: 14px 16px; gap: 10px; }
+    .status-intro-icon { width: 38px; height: 38px; font-size: 18px; }
+    .status-intro-title { font-size: 16px; }
+    ::v-deep .el-table .cell { padding-left: 8px; padding-right: 8px; }
+    ::v-deep .el-input-number { width: 100%; }
+  }
 </style>

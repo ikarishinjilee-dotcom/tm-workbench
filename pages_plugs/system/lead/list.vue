@@ -331,4 +331,16 @@ export default {
   .dialog-role-id { margin-top: 5px; color: #9aaac0; font-size: 12px; }
   .lead-form ::v-deep .el-checkbox { margin-right: 18px; margin-bottom: 12px; }
   .form-tip { line-height: 1.6; }
+
+  /* 移动端适配 */
+  @media screen and (max-width: 768px) {
+    .lead-intro-card { padding: 14px 16px; }
+    .lead-intro-icon { width: 38px; height: 38px; margin-right: 10px; font-size: 18px; }
+    .lead-intro-title { font-size: 16px; }
+    .source-dialog-tip { margin-left: 0; }
+    .dialog-role-summary { padding: 10px 12px; margin-bottom: 14px; }
+    .lead-form ::v-deep .el-checkbox { margin-right: 10px; }
+    ::v-deep .el-table .cell { padding-left: 8px; padding-right: 8px; }
+    .source-tag, .permission-tag { margin: 2px 3px 2px 0; }
+  }
 </style>

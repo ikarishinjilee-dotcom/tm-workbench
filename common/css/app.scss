@@ -46,3 +46,69 @@ text {
   padding-left: 24em;
 }
 /* 富文本编辑器样式 - 结束 */
+
+/* ================= 移动端全局适配（手机端后台也可用） - 开始 ================= */
+@media screen and (max-width: 768px) {
+  /* 弹窗宽度兜底：所有 el-dialog / vk-data-dialog / el-message-box 收窄为视口宽度，避免固定 px 弹窗在手机溢出 */
+  .el-dialog {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    margin-top: 6vh !important;
+  }
+  .el-dialog__body {
+    padding: 14px 16px !important;
+  }
+  .el-message-box {
+    width: calc(100vw - 40px) !important;
+  }
+  /* 抽屉：小屏全宽 */
+  .el-drawer {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  /* 表格容器允许横向滚动，列不挤压 */
+  .el-table {
+    width: 100% !important;
+  }
+  .el-table__body-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* 页面通用卡片与间距收紧 */
+  .vk-page-card {
+    padding: 12px !important;
+  }
+  .vk-page-card-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .vk-page-card-actions {
+    flex-wrap: wrap;
+  }
+  /* 表单控件宽度自适应 */
+  .el-form-item {
+    display: block;
+  }
+  .el-form-item__label {
+    float: none !important;
+    display: block;
+    text-align: left !important;
+    line-height: 1.6 !important;
+    padding-bottom: 4px;
+  }
+  .el-form-item__content {
+    margin-left: 0 !important;
+  }
+  .el-date-editor.el-input,
+  .el-select,
+  .el-cascader,
+  .el-input-number,
+  .el-autocomplete {
+    width: 100% !important;
+  }
+  .el-date-editor--daterange.el-input__inner,
+  .el-date-editor--datetimerange.el-input__inner {
+    width: 100% !important;
+  }
+}
+/* ================= 移动端全局适配 - 结束 ================= */
