@@ -299,6 +299,7 @@
           admin: '管理员',
           super_admin: '管理员',
           administrator: '管理员',
+          operator: '运营管理员',
           consultant: '咨询师',
           counselor: '咨询师',
           zixunshi: '咨询师',
