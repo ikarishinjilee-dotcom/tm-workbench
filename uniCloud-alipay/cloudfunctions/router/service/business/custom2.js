@@ -389,19 +389,20 @@ const notifyLeadProviderFollowupFeedback = async ({ db, customer = {}, record = 
   const normalizedStatus = normalizeCustomerStatus(record.status);
   const isImportantFeedback = ['converted', 'refunded'].includes(normalizedStatus);
   let recipientIds = [customer.lead_provider_id].filter(Boolean);
+  // 拉取一次用户列表，同时用于线索来源匹配与 admin 通知。
+  const recipientUsersRes = await db.collection('uni-id-users').field({
+    _id: true,
+    username: true,
+    nickname: true,
+    status: true,
+    allow_login_background: true,
+    role: true,
+    roles: true,
+    role_id: true,
+    roleIds: true,
+  }).limit(500).get();
   if (!recipientIds.length && sourceAliases.length) {
-    const providerRes = await db.collection('uni-id-users').field({
-      _id: true,
-      username: true,
-      nickname: true,
-      status: true,
-      allow_login_background: true,
-      role: true,
-      roles: true,
-      role_id: true,
-      roleIds: true,
-    }).limit(500).get();
-    recipientIds = (providerRes.data || [])
+    recipientIds = (recipientUsersRes.data || [])
       .filter((item) => item.status !== 1 && item.allow_login_background !== false && isLeadProviderUser(item))
       .filter((item) => getLeadProviderVisibleSources(item).some((source) => sourceAliases.includes(source)))
       .map((item) => item._id)
