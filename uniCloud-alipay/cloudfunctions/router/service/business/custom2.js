@@ -564,7 +564,13 @@ const cloudObject = {
       .filter(Boolean)
       .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
     // 字典来源（含内置与自定义）与直播老师动态来源合并，确保前端下拉框能匹配客户已使用的所有来源值。
-    const configuredSourceOptions = await getLeadSourceOptions(uniCloud.database());
+    // 集合未部署时兜底返回默认来源，不阻断 getAccessProfile 接口。
+    let configuredSourceOptions = [];
+    try {
+      configuredSourceOptions = await getLeadSourceOptions(uniCloud.database());
+    } catch (error) {
+      configuredSourceOptions = defaultLeadSourceOptions.map(normalizeLeadSourceOption);
+    }
     const mergedSourceOptions = [
       ...configuredSourceOptions,
       ...allLiveSourceOptions,
