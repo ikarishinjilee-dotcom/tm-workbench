@@ -106,9 +106,16 @@
         </el-form-item>
         <el-form-item label="来源范围">
           <el-checkbox-group v-model="roleDialog.form.lead_sources">
-            <el-checkbox v-for="item in sourceOptions" :key="item.value" :label="item.value">{{ item.label }}</el-checkbox>
+            <view v-if="generalSources.length" class="source-group">
+              <view class="source-group__title">通用来源</view>
+              <el-checkbox v-for="item in generalSources" :key="item.value" :label="item.value">{{ item.label }}</el-checkbox>
+            </view>
+            <view v-if="dynamicSources.length" class="source-group">
+              <view class="source-group__title">直播账号专属来源</view>
+              <el-checkbox v-for="item in dynamicSources" :key="item.value" :label="item.value" class="source-dynamic">{{ item.label }}</el-checkbox>
+            </view>
           </el-checkbox-group>
-          <div class="form-tip">选择“直播来源”时，该角色可管理所有直播账号产生的客户线索。</div>
+          <div class="form-tip">勾选通用来源即可按来源管理客户；如需按具体直播老师账号细分，需勾选对应"直播账号专属来源"。</div>
         </el-form-item>
       </el-form>
       <span slot="footer">
@@ -228,8 +235,14 @@ export default {
             const merged = [...dynamicSources, ...dictSources]
               .filter((item) => item.value !== 'live')
               .filter((item, index, list) => list.findIndex((candidate) => candidate.value === item.value) === index);
+            // 给每个来源打 kind 标记，弹窗分组渲染：通用来源 vs 直播账号专属来源
+            const dynamicValueSet = new Set(dynamicSources.map((item) => item.value));
             this.sourceCatalog = merged;
-            this.sourceOptions = merged.map((item) => ({ value: item.value, label: item.label }));
+            this.sourceOptions = merged.map((item) => ({
+              value: item.value,
+              label: item.label,
+              kind: dynamicValueSet.has(item.value) ? 'dynamic' : 'general',
+            }));
           } else {
             this.$message.warning((result && result.msg) || '线索来源加载失败');
           }
@@ -305,6 +318,15 @@ export default {
       return item ? item.label : value;
     },
   },
+  computed: {
+    // 弹窗分组渲染：通用来源 vs 直播账号专属来源
+    generalSources() {
+      return this.sourceOptions.filter((item) => item.kind !== 'dynamic');
+    },
+    dynamicSources() {
+      return this.sourceOptions.filter((item) => item.kind === 'dynamic');
+    },
+  },
 };
 </script>
 
@@ -331,6 +353,20 @@ export default {
   .dialog-role-id { margin-top: 5px; color: #9aaac0; font-size: 12px; }
   .lead-form ::v-deep .el-checkbox { margin-right: 18px; margin-bottom: 12px; }
   .form-tip { line-height: 1.6; }
+
+  /* 弹窗来源分组：通用来源 / 直播账号专属 */
+  .source-group { margin-bottom: 12px; }
+  .source-group__title {
+    margin: 6px 0 8px;
+    font-size: 12px;
+    color: #4b5b75;
+    font-weight: 600;
+  }
+  .source-group .source-group__title + ::v-deep .el-checkbox { margin-right: 14px; }
+  ::v-deep .el-checkbox.source-dynamic .el-checkbox__label {
+    color: #b54708;
+    font-weight: 500;
+  }
 
   /* 移动端适配 */
   @media screen and (max-width: 768px) {
