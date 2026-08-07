@@ -286,4 +286,52 @@
       padding: 20px 16px !important;
     }
   }
+
+  /* 客户状态标签全局样式（非 scoped，编译到全局 CSS，保证在 vk-data-table v-slot 内也能命中）。 */
+  .tm-status-tag {
+    display: inline-block;
+    padding: 0 8px;
+    line-height: 20px;
+    font-size: 12px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .tm-status-tag--initial {
+    border-color: #d9e0e8 !important;
+    background: #f2f4f7 !important;
+    color: #667085 !important;
+  }
+  .tm-status-tag--positive,
+  .tm-status-tag--difficult,
+  .tm-status-tag--refunded {
+    border-color: #f5c56b !important;
+    background: #fff7e6 !important;
+    color: #b76e00 !important;
+  }
+  .tm-status-tag--difficult {
+    border-color: #c8b4ee !important;
+    background: #f5f0ff !important;
+    color: #7048a8 !important;
+  }
+  .tm-status-tag--refunded {
+    border-color: #f3c08a !important;
+    background: #fff6ed !important;
+    color: #c2611a !important;
+  }
+  .tm-status-tag--invited {
+    border-color: #9ac8fa !important;
+    background: #ecf5ff !important;
+    color: #2878c8 !important;
+  }
+  .tm-status-tag--success {
+    border-color: #a8e5c0 !important;
+    background: #edfff3 !important;
+    color: #18a058 !important;
+  }
+  .tm-status-tag--danger {
+    border-color: #f2a7a7 !important;
+    background: #fff1f1 !important;
+    color: #d93025 !important;
+  }
 </style>
