@@ -588,7 +588,7 @@
   .metric-card--clickable:hover { box-shadow: 0 10px 24px rgba(50, 92, 150, .12); transform: translateY(-2px); }
   .live-source-row--clickable { cursor: pointer !important; }
   .live-source-row--clickable:hover { margin: 0 -8px; padding-right: 8px; padding-left: 8px; border-radius: 8px; background: #f8fbff; }
-  @media screen and (max-width: 620px) { .dashboard-title { font-size: 20px; }.dashboard-hero { align-items: flex-start; flex-direction: column; }.hero-actions { width: 100%; }.hero-actions ::v-deep .el-button { flex: 1; }.metric-grid, .content-grid { grid-template-columns: 1fr; }.admin-analysis-grid .live-source-list { grid-template-columns: 1fr; }.reminder-grid { grid-template-columns: 1fr; }.performance-grid { gap: 8px; }.funnel-step { width: 113px; }.funnel-label { font-size: 10px; } }
+  @media screen and (max-width: 620px) { .dashboard-title { font-size: 20px; }.dashboard-hero { align-items: flex-start; flex-direction: column; }.hero-actions { width: 100%; }.hero-actions ::v-deep .el-button { flex: 1; }.metric-grid { grid-template-columns: repeat(2, 1fr); }.content-grid { grid-template-columns: 1fr; }.admin-analysis-grid .live-source-list { grid-template-columns: 1fr; }.reminder-grid { grid-template-columns: 1fr; }.performance-grid { gap: 8px; }.funnel-step { width: 113px; }.funnel-label { font-size: 10px; } }
 </style>
 
 <style lang="scss">
