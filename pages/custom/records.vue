@@ -1773,14 +1773,15 @@
 			},
 			// 客户状态标签：方法直接返回 inline style，绕开组件封装，确保 H5 端一定出颜色。
 			getRowStatusStyle(status) {
+				// 使用更明显的颜色对比度（加深背景/边框/字体色），避免"初步沟通"等浅色状态被忽略。
 				const map = {
-					initial_contact: 'background:#f2f4f7;color:#667085;border:1px solid #d9e0e8;',
-					communicating_positive: 'background:#fff7e6;color:#b76e00;border:1px solid #f5c56b;',
-					communicating_difficult: 'background:#f5f0ff;color:#7048a8;border:1px solid #c8b4ee;',
-					invited: 'background:#ecf5ff;color:#2878c8;border:1px solid #9ac8fa;',
-					converted: 'background:#edfff3;color:#18a058;border:1px solid #a8e5c0;',
-					refunded: 'background:#fff6ed;color:#c2611a;border:1px solid #f3c08a;',
-					not_interested: 'background:#fff1f1;color:#d93025;border:1px solid #f2a7a7;',
+					initial_contact: 'background:#e4e7eb;color:#344054;border:1px solid #98a2b3;',
+					communicating_positive: 'background:#fde2c5;color:#93370d;border:1px solid #f79009;',
+					communicating_difficult: 'background:#ebdffc;color:#5925dc;border:1px solid #b692f6;',
+					invited: 'background:#d1e9ff;color:#175cd3;border:1px solid #2e90fa;',
+					converted: 'background:#d1fadf;color:#054f31;border:1px solid #12b76a;',
+					refunded: 'background:#fde7c3;color:#7a2e0e;border:1px solid #f38744;',
+					not_interested: 'background:#fee4e2;color:#b42318;border:1px solid #f97066;',
 				};
 				const base = 'display:inline-block;padding:0 8px;line-height:20px;font-size:12px;border-radius:3px;white-space:nowrap;';
 				return base + (map[status] || map.initial_contact);
