@@ -668,10 +668,11 @@
       background-color: #191a23;
       height: 50px;
       padding: 0 14px;
+      overflow: hidden;
 
       .logo-image {
-        height: 32px;
-        width: 180px;
+        max-height: 40px;
+        max-width: 100%;
         display: block;
       }
     }
