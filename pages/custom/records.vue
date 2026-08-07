@@ -2,7 +2,7 @@
 	<view class="page-body">
 		<view class="vk-page-card vk-page-search-card">
 			<vk-data-table-query v-model="query.formData" :columns="visibleQueryColumns" :span="4" :collapse-rows="1"
-				:collapse-default-expand="true" @search="search">
+				:collapse-default-expand="!isMobileViewport()" @search="search">
 			<template v-slot:_add_time_range="{ form }">
 				<el-date-picker
 					v-model="form._add_time_range"
