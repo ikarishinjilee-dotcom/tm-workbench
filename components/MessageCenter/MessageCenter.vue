@@ -6,7 +6,7 @@
 				<el-button v-if="badgeValue > 0" type="text" size="mini" @click="markAllRead">全部已读</el-button>
 			</view>
 			<view v-if="localMessages.length" class="message-center__list">
-				<view v-for="message in localMessages" :key="message._id || message.id" class="message-center__item" :class="{ 'is-unread': !message.read }" @click="handleMessageClick(message)">
+				<view v-for="(message, index) in localMessages" :key="index" class="message-center__item" :class="{ 'is-unread': !message.read }" @click="handleMessageClick(message)">
 					<view class="message-center__item-dot"></view>
 					<view class="message-center__item-body">
 						<view class="message-center__item-title">{{ message.title || '消息提醒' }}<text v-if="!message.read" class="message-center__item-status">未读</text></view>

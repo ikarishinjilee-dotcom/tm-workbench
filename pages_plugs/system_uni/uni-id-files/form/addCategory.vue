@@ -17,7 +17,7 @@
     >
       <template v-slot:parent_id="{ form, keyName }">
         <el-select v-model="form[keyName]" clearable :placeholder="$t('vk.assetLibrary.addCategory.selectParentCategory')" style="width: 100%">
-          <el-option v-for="item in value.list || []" :key="item._id || 'root'" :label="item.name" :value="item._id"></el-option>
+          <el-option v-for="(item, index) in value.list || []" :key="index" :label="item.name" :value="item._id"></el-option>
         </el-select>
       </template>
     </vk-data-form>

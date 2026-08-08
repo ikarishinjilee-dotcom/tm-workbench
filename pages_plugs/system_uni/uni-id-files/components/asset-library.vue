@@ -84,7 +84,7 @@
         <div v-if="showTypeTabs" class="type-tab-row">
           <div
             v-for="item in typeTabs"
-            :key="item.value || 'all'"
+            :key="item.tab_key"
             class="type-tab"
             :class="queryForm1.formData.type === item.value ? 'active-tab' : ''"
             @click.stop="changeType(item.value)"
@@ -501,11 +501,11 @@
           },
         },
         typeTabs: [
-          { label: this.$t('vk.assetLibrary.allTypes'), value: '' },
-          { label: this.$t('vk.assetLibrary.image'), value: 'image' },
-          { label: this.$t('vk.assetLibrary.video'), value: 'video' },
-          { label: this.$t('vk.assetLibrary.audio'), value: 'audio' },
-          { label: this.$t('vk.assetLibrary.other'), value: 'other' },
+          { label: this.$t('vk.assetLibrary.allTypes'), value: '', tab_key: 'all' },
+          { label: this.$t('vk.assetLibrary.image'), value: 'image', tab_key: 'image' },
+          { label: this.$t('vk.assetLibrary.video'), value: 'video', tab_key: 'video' },
+          { label: this.$t('vk.assetLibrary.audio'), value: 'audio', tab_key: 'audio' },
+          { label: this.$t('vk.assetLibrary.other'), value: 'other', tab_key: 'other' },
         ],
         sortOptions: [
           { label: this.$t('vk.assetLibrary.sortLatest'), value: 'latest' },

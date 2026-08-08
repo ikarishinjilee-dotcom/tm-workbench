@@ -1,6 +1,6 @@
 <template>
 	<view :class="['customer-file-grid', { 'is-compact': compact }]">
-		<view v-for="(file, index) in files" :key="fileUrl(file) || index" class="customer-file-card">
+		<view v-for="(file, index) in files" :key="index" class="customer-file-card">
 			<view class="customer-file-card__preview" :class="fileClass(file)" @click="preview(file)">
 				<view class="customer-file-card__type">{{ fileExt(file) }}</view>
 				<image v-if="isImage(file) && !failedImages[fileUrl(file)]" class="customer-file-card__image"

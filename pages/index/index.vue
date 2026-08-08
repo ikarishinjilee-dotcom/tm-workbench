@@ -38,7 +38,7 @@
               <view class="section-heading"><view><view class="section-title"><i class="el-icon-user-solid"></i>咨询师分配效果</view><view class="section-note">推进率只统计今日新接收客户；签单统计本月实际成交客户</view></view></view>
               <view class="live-consultant-table">
                 <view class="live-table-row live-table-head"><text>咨询师</text><text>今日接收</text><text>今日推进</text><text>本月签单</text><text>推进率</text></view>
-                <view v-for="item in liveDashboard.consultant_stats" :key="item.consultant_id || item.consultant_name" class="live-table-row">
+                <view v-for="(item, index) in liveDashboard.consultant_stats" :key="index" class="live-table-row">
                   <text class="live-table-name">{{ item.consultant_name }}</text><text>{{ item.received }}</text><text>{{ item.followed }}</text><text>{{ item.month_converted }}</text><text>{{ item.followup_rate }}%</text>
                 </view>
                 <view v-if="!liveDashboard.consultant_stats.length" class="empty-state"><i class="el-icon-user"></i>今日暂无新增客户</view>
@@ -105,7 +105,7 @@
           <view class="dashboard-card section-card live-quality-card">
             <view class="section-heading"><view><view class="section-title"><i class="el-icon-medal"></i>客户质量分析</view><view class="section-note">按全部客户及状态质量分类统计 · 总计 {{ summary.total }} 位客户</view></view></view>
             <view class="live-quality-grid">
-              <view v-for="item in liveDashboard.quality_stats" :key="`admin-${item.key}`" class="live-quality-item" :class="`live-quality-${item.key}`"><view class="live-quality-value">{{ item.value }}</view><view class="live-quality-label">{{ item.label }}</view></view>
+              <view v-for="(item, index) in liveDashboard.quality_stats" :key="index" class="live-quality-item" :class="`live-quality-${item.key}`"><view class="live-quality-value">{{ item.value }}</view><view class="live-quality-label">{{ item.label }}</view></view>
             </view>
             <view class="live-value-summary">
               <view><text>本月新增客户</text><strong>{{ liveDashboard.value_summary.month_new }}</strong></view>
@@ -117,7 +117,7 @@
           <view class="dashboard-card section-card live-source-card">
             <view class="section-heading"><view><view class="section-title"><i class="el-icon-pie-chart"></i>客户来源累计效果</view><view class="section-note">按全部来源累计统计客户推进和签单情况</view></view></view>
             <view class="live-source-list">
-              <view v-for="item in liveDashboard.source_stats" :key="`admin-${item.source}`" class="live-source-row live-source-row--clickable" @click="openSourceCustomers(item.source)">
+              <view v-for="(item, index) in liveDashboard.source_stats" :key="index" class="live-source-row live-source-row--clickable" @click="openSourceCustomers(item.source)">
                 <view><view class="live-source-name">{{ formatSourceLabel(item.source) }}</view><view class="live-source-meta">客户 {{ item.count }} 个 · 已推进 {{ item.advanced }} 个 · 已签单 {{ item.converted }} 个 · 签单率 {{ item.conversion_rate }}%</view></view>
                 <view class="live-source-count">{{ item.count }}</view>
               </view>
@@ -131,7 +131,7 @@
             <view class="section-heading"><view><view class="section-title"><i class="el-icon-user-solid"></i>咨询师工作情况</view><view class="section-note">按当前可见客户统计各咨询师的接收、推进和本月签单</view></view><el-button type="text" size="small" @click="openCustomers()">查看客户</el-button></view>
             <view class="live-consultant-table team-consultant-table">
               <view class="live-table-row live-table-head"><text>咨询师</text><text>今日接收</text><text>今日推进</text><text>本月签单</text><text>推进率</text></view>
-              <view v-for="item in liveDashboard.consultant_stats" :key="`team-${item.consultant_id || item.consultant_name}`" class="live-table-row">
+              <view v-for="(item, index) in liveDashboard.consultant_stats" :key="index" class="live-table-row">
                 <text class="live-table-name">{{ item.consultant_name }}</text><text>{{ item.received }}</text><text>{{ item.followed }}</text><text>{{ item.month_converted }}</text><text>{{ item.followup_rate }}%</text>
               </view>
               <view v-if="!liveDashboard.consultant_stats.length" class="empty-state"><i class="el-icon-user"></i>暂无咨询师数据</view>
