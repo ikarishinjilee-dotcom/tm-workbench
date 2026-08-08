@@ -5,7 +5,10 @@ import config from '@/app.config.js';
 
 // 引入 elementUI
 import elementUI from 'element-ui';
+// element-ui 样式含内联 base64 字体图标，微信小程序 wxss 编译器无法解析（报 unexpected token），仅 H5 端引入。
+// #ifdef H5
 import 'element-ui/lib/theme-chalk/index.css';
+// #endif
 
 // 加载 Element UI 的语言包
 import enLocale from 'element-ui/lib/locale/lang/en';
@@ -53,7 +56,10 @@ Vue.use(elementUI, {
 
 // 引入 高性能表格UI 组件
 import UmyUi from 'umy-ui';
+// umy-ui 样式含内联字体等，小程序 wxss 编译器无法解析，仅 H5 端引入。
+// #ifdef H5
 import 'umy-ui/lib/theme-chalk/index.css';
+// #endif
 Vue.use(UmyUi);
 
 // 引入 vk 实例
