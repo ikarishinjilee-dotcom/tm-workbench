@@ -81,7 +81,9 @@
         <!-- 上传图片 -->
         <view class="iconfont icon-charutupian" @tap="insertImage"></view>
         <!-- 上传图片 从素材库选择 -->
+        <!-- #ifdef H5 -->
         <view class="iconfont icon-charutupian" @tap="insertImageFromFileSelect"></view>
+        <!-- #endif -->
         <!-- 上传视频 -->
         <!-- <view class="icon el-icon-video-camera" @tap="insertVideo"></view> -->
         <!-- H1 -->
@@ -120,6 +122,7 @@
         @ready="onEditorReady"
         @input="onInput"
       ></editor>
+      <!-- #ifdef H5 -->
       <vk-data-input-file-select
         ref="fileSelectDialog"
         :controls="false"
@@ -129,6 +132,7 @@
         file-type="image"
         @selected="onFileSelect"
       ></vk-data-input-file-select>
+      <!-- #endif -->
     </view>
   </view>
 </template>
@@ -374,6 +378,7 @@
           },
         });
       },
+      // #ifdef H5
       insertImageFromFileSelect() {
         let that = this;
         let { vk } = that;
@@ -394,6 +399,7 @@
           });
         }
       },
+      // #endif
       insertVideo() {
         let that = this;
         let { vk } = that;
