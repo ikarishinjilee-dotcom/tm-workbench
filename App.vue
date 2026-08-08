@@ -195,15 +195,13 @@
   }
 
   .customer-profile-dialog .vk-data-form > .el-form .el-form-item:has(.el-textarea),
-  .customer-profile-dialog .vk-data-form > .el-form .el-form-item:has(.el-checkbox),
-  .customer-profile-dialog .vk-data-form > .el-form .el-form-item:has([placeholder='请输入意向地区备注']) {
+  .customer-profile-dialog .vk-data-form > .el-form .el-form-item:has(.el-checkbox) {
     grid-column: 1 / -1 !important;
   }
 
   .customer-profile-dialog .vk-data-form > .el-form > .vk-contents:has(.bar-title),
   .customer-profile-dialog .vk-data-form > .el-form > .vk-contents:has(.el-textarea),
-  .customer-profile-dialog .vk-data-form > .el-form > .vk-contents:has(.el-checkbox),
-  .customer-profile-dialog .vk-data-form > .el-form > .vk-contents:has([placeholder='请输入意向地区备注']) {
+  .customer-profile-dialog .vk-data-form > .el-form > .vk-contents:has(.el-checkbox) {
     grid-column: 1 / -1 !important;
   }
 
