@@ -69,7 +69,10 @@ Vue.use(vk, config);
 
 // 引入 vkAdminUI 组件
 import vkAdminUI from 'vk-unicloud-admin-ui';
+// vk-unicloud-admin-ui 主题含 vk-icon 内联 base64 woff2 字体，微信小程序 wxss 编译器无法解析，仅 H5 端引入。
+// #ifdef H5
 import 'vk-unicloud-admin-ui/theme/index.css';
+// #endif
 Vue.use(vkAdminUI);
 
 // 自动注册全局组件（必须加在Vue.use(vkAdminUI);的后面）

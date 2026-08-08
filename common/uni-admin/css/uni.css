@@ -27,10 +27,12 @@ uni-page-head .uni-btn-icon {
   color: #333 !important;
 }
 
+/* #ifdef H5 */
 .uni-app--showleftwindow uni-page-head[uni-page-head-type='default'] ~ uni-page-wrapper {
   height: auto;
   padding-top: 59px;
 }
+/* #endif */
 
 /* .uni-app--showleftwindow uni-page-head~uni-page-wrapper uni-page-body {
 	padding-top: 44px;
