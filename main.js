@@ -71,20 +71,27 @@ Vue.use(vkAdminUI);
 // 不能使用 require.context 动态遍历注册（会报 "Vue.component()的第一个参数必须为静态字符串"）。
 // 因此改为静态 import + 显式注册，组件名与原来的动态注册规则保持一致。
 import customDemo from '@/components/custom-demo/custom-demo.vue';
-import customEditorTinymce from '@/components/custom-editor-tinymce/custom-editor-tinymce.vue';
 import MessageCenter from '@/components/MessageCenter/MessageCenter.vue';
 import vkDataInputEditor from '@/components/vk-data-input-editor/vk-data-input-editor.vue';
-import vkDataInputFileSelect from '@/components/vk-data-input-file-select/vk-data-input-file-select.vue';
 import vkDataPageHeader from '@/components/vk-data-page-header/vk-data-page-header.vue';
 import vkDataQrcode from '@/components/vk-data-qrcode/vk-data-qrcode.vue';
 
 Vue.component('custom-demo', customDemo);
-Vue.component('custom-editor-tinymce', customEditorTinymce);
 Vue.component('MessageCenter', MessageCenter);
 Vue.component('vk-data-input-editor', vkDataInputEditor);
-Vue.component('vk-data-input-file-select', vkDataInputFileSelect);
 Vue.component('vk-data-page-header', vkDataPageHeader);
 Vue.component('vk-data-qrcode', vkDataQrcode);
+
+// vk-data-input-file-select 与 custom-editor-tinymce 仅支持 H5：
+// vk-data-input-file-select 依赖 wxfileMessage 等小程序原生插件，编译器自动生成的 .json 配置缺失导致小程序端启动失败；
+// custom-editor-tinymce 依赖 tinymce 浏览器库，小程序端无意义。
+// 用条件编译仅在 H5 端注册，确保小程序端不触发相关编译，同时不影响 PC 端正常使用。
+// #ifdef H5
+import vkDataInputFileSelect from '@/components/vk-data-input-file-select/vk-data-input-file-select.vue';
+import customEditorTinymce from '@/components/custom-editor-tinymce/custom-editor-tinymce.vue';
+Vue.component('vk-data-input-file-select', vkDataInputFileSelect);
+Vue.component('custom-editor-tinymce', customEditorTinymce);
+// #endif
 
 // 显式注册根目录下的单文件组件（require.context 不会自动注册 length===1 的文件）。
 import StatusTag from '@/components/StatusTag.vue';
