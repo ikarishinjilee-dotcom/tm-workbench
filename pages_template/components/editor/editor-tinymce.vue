@@ -16,6 +16,7 @@
         </el-select>
       </view>
       <view style="display: flex; flex-direction: column; margin-top: 20px">
+        <!-- #ifdef H5 -->
         <view style="flex: 1">
           <custom-editor-tinymce
             ref="editorTinymce1"
@@ -40,6 +41,10 @@
             class="custom-editor-tinymce-detail"
           ></custom-editor-tinymce>
         </view>
+        <!-- #endif -->
+        <!-- #ifndef H5 -->
+        <view style="flex: 1; padding: 40px 0; text-align: center; color: #909399">富文本编辑器（tinymce）仅支持 H5 端</view>
+        <!-- #endif -->
       </view>
 
       <view class="tips" style="margin-top: 50px">

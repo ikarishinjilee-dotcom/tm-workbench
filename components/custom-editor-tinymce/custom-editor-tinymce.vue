@@ -4,6 +4,7 @@
     <div v-if="!hasInit && showLoading" v-loading="!hasInit" class="loading-box"></div>
     <textarea :id="editorId" class="editor-textarea" />
 
+    <!-- #ifdef H5 -->
     <vk-data-input-file-select
       v-if="fileSelect.fileType"
       ref="fileSelectDialog"
@@ -18,6 +19,7 @@
       :placeholder="t('vk.form.fileSelect.placeholder')"
       @selected="_selected"
     ></vk-data-input-file-select>
+    <!-- #endif -->
   </div>
   <!-- 万能表格 -->
   <div v-else-if="scene === 'table'" class="tinymce-editor editor-table">
