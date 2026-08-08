@@ -321,23 +321,23 @@
             <el-table :data="row.refund_list || []" border size="small" :empty-text="'暂无退款记录'">
               <el-table-column type="index" label="序号" width="60" align="center"></el-table-column>
               <el-table-column prop="out_refund_no" label="退款单号" min-width="220">
-                <template slot-scope="scope">
-                  <span>{{ scope.row.out_refund_no || '-' }}</span>
+                <template v-slot="{ row }">
+                  <span>{{ row.out_refund_no || '-' }}</span>
                   <vk-data-icon
-                    v-if="scope.row.out_refund_no"
+                    v-if="row.out_refund_no"
                     name="el-icon-document-copy"
                     color="#909399"
                     size="14"
                     class="copy-icon"
-                    @click="copyText(scope.row.out_refund_no)"
+                    @click="copyText(row.out_refund_no)"
                   ></vk-data-icon>
                 </template>
               </el-table-column>
               <el-table-column label="退款时间" width="180" align="center">
-                <template slot-scope="scope">{{ timeFilter(scope.row.refund_date) }}</template>
+                <template v-slot="{ row }">{{ timeFilter(row.refund_date) }}</template>
               </el-table-column>
               <el-table-column label="退款金额" width="140" align="right">
-                <template slot-scope="scope">¥{{ priceFilter(scope.row.refund_fee) }}</template>
+                <template v-slot="{ row }">¥{{ priceFilter(row.refund_fee) }}</template>
               </el-table-column>
               <el-table-column prop="refund_desc" label="退款备注" min-width="200"></el-table-column>
             </el-table>

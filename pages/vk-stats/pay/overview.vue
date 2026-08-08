@@ -163,8 +163,8 @@
             <el-table-column prop="refundAmountText" label="退款金额(元)" min-width="120" align="right"></el-table-column>
             <el-table-column prop="netIncomeText" label="净收入(元)" min-width="120" align="right"></el-table-column>
             <el-table-column label="操作" width="80" align="right">
-              <template v-slot="scope">
-                <el-button type="text" @click="applyTableFilter('platform', scope.row.key)">明细</el-button>
+              <template v-slot="{ row }">
+                <el-button type="text" @click="applyTableFilter('platform', row.key)">明细</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -181,8 +181,8 @@
             <el-table-column prop="refundAmountText" label="退款金额(元)" min-width="120" align="right"></el-table-column>
             <el-table-column prop="netIncomeText" label="净收入(元)" min-width="120" align="right"></el-table-column>
             <el-table-column label="操作" width="80" align="right">
-              <template v-slot="scope">
-                <el-button type="text" @click="applyTableFilter('orderType', scope.row.key)">明细</el-button>
+              <template v-slot="{ row }">
+                <el-button type="text" @click="applyTableFilter('orderType', row.key)">明细</el-button>
               </template>
             </el-table-column>
           </el-table>

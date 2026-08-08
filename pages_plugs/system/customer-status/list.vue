@@ -22,31 +22,31 @@
       <div class="vk-page-card-table">
         <el-table v-loading="loading" :data="statuses" stripe>
           <el-table-column prop="label" label="状态名称" min-width="220">
-            <template slot-scope="scope">
-              <span class="status-name"><i class="el-icon-price-tag"></i>{{ scope.row.label }}</span>
+            <template v-slot="{ row }">
+              <span class="status-name"><i class="el-icon-price-tag"></i>{{ row.label }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="quality_level" label="客户质量" width="130" align="center">
-            <template slot-scope="scope">
-              <el-tag :type="qualityTagType(scope.row.quality_level)" size="mini">{{ qualityLabel(scope.row.quality_level) }}</el-tag>
+            <template v-slot="{ row }">
+              <el-tag :type="qualityTagType(row.quality_level)" size="mini">{{ qualityLabel(row.quality_level) }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column prop="value" label="内部编码" min-width="280" />
           <el-table-column prop="sort" label="排序" width="90" align="center" />
           <el-table-column label="类型" width="110" align="center">
-            <template slot-scope="scope">
-              <el-tag :type="scope.row.built_in ? 'info' : 'success'" size="mini">{{ scope.row.built_in ? '内置' : '自定义' }}</el-tag>
+            <template v-slot="{ row }">
+              <el-tag :type="row.built_in ? 'info' : 'success'" size="mini">{{ row.built_in ? '内置' : '自定义' }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="状态" width="110" align="center">
-            <template slot-scope="scope">
-              <el-tag :type="scope.row.enabled === false ? 'warning' : 'success'" size="mini">{{ scope.row.enabled === false ? '已停用' : '已启用' }}</el-tag>
+            <template v-slot="{ row }">
+              <el-tag :type="row.enabled === false ? 'warning' : 'success'" size="mini">{{ row.enabled === false ? '已停用' : '已启用' }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="220" fixed="right">
-            <template slot-scope="scope">
-              <el-button type="text" :size="$global.size" @click="editStatus(scope.row)">编辑状态</el-button>
-              <el-button type="text" :size="$global.size" @click="toggleStatus(scope.row)">{{ scope.row.enabled === false ? '启用状态' : '停用状态' }}</el-button>
+            <template v-slot="{ row }">
+              <el-button type="text" :size="$global.size" @click="editStatus(row)">编辑状态</el-button>
+              <el-button type="text" :size="$global.size" @click="toggleStatus(row)">{{ row.enabled === false ? '启用状态' : '停用状态' }}</el-button>
             </template>
           </el-table-column>
         </el-table>

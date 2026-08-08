@@ -36,9 +36,9 @@
         <div class="h3">奖品列表</div>
         <el-table :data="activityData.prize_list" size="small">
           <el-table-column prop="name" label="奖品名称">
-            <template slot-scope="scope">
+            <template v-slot="{ row }">
               <div class="tags-group">
-                <el-tag>{{ scope.row.lv_text ? scope.row.lv_text + '：' : '' }} {{ scope.row.name }}</el-tag>
+                <el-tag>{{ row.lv_text ? row.lv_text + '：' : '' }} {{ row.name }}</el-tag>
               </div>
             </template>
           </el-table-column>

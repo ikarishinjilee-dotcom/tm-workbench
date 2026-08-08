@@ -22,24 +22,24 @@
       <div class="vk-page-card-table">
         <el-table v-loading="sourceLoading" :data="sourceCatalog" stripe>
           <el-table-column prop="label" label="来源名称" min-width="220">
-            <template slot-scope="scope">
-              <span class="source-name"><i class="el-icon-connection"></i>{{ scope.row.label }}</span>
+            <template v-slot="{ row }">
+              <span class="source-name"><i class="el-icon-connection"></i>{{ row.label }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="value" label="内部编码" min-width="280" />
           <el-table-column label="类型" width="140">
-            <template slot-scope="scope">
-              <el-tag v-if="isDynamicSource(scope.row)" :type="scope.row.hidden ? 'danger' : 'warning'" size="mini">{{ scope.row.hidden ? '直播账号·已隐藏' : '直播账号' }}</el-tag>
-              <el-tag v-else :type="scope.row.built_in ? 'info' : 'success'" size="mini">{{ scope.row.built_in ? '内置' : '自定义' }}</el-tag>
+            <template v-slot="{ row }">
+              <el-tag v-if="isDynamicSource(row)" :type="row.hidden ? 'danger' : 'warning'" size="mini">{{ row.hidden ? '直播账号·已隐藏' : '直播账号' }}</el-tag>
+              <el-tag v-else :type="row.built_in ? 'info' : 'success'" size="mini">{{ row.built_in ? '内置' : '自定义' }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="200" fixed="right">
-            <template slot-scope="scope">
-              <template v-if="!isDynamicSource(scope.row)">
-                <el-button type="text" :size="$global.size" @click="editSource(scope.row)">编辑名称</el-button>
-                <el-button v-if="!scope.row.built_in" type="text" :size="$global.size" class="danger-text" @click="removeSource(scope.row)">删除</el-button>
+            <template v-slot="{ row }">
+              <template v-if="!isDynamicSource(row)">
+                <el-button type="text" :size="$global.size" @click="editSource(row)">编辑名称</el-button>
+                <el-button v-if="!row.built_in" type="text" :size="$global.size" class="danger-text" @click="removeSource(row)">删除</el-button>
               </template>
-              <template v-else-if="scope.row.hidden">
+              <template v-else-if="row.hidden">
                 <el-tooltip content="该直播老师账号已冻结或封禁，该来源不再出现在客户来源下拉框中；历史客户仍保留此来源值" placement="top">
                   <span class="muted-text">账号已冻结</span>
                 </el-tooltip>
@@ -62,30 +62,30 @@
       <div class="vk-page-card-table">
         <el-table v-loading="loading" :data="roles" stripe>
           <el-table-column prop="role_name" label="角色名称" width="180">
-            <template slot-scope="scope">
-              <span class="role-name"><i class="el-icon-user"></i>{{ scope.row.role_name }}</span>
+            <template v-slot="{ row }">
+              <span class="role-name"><i class="el-icon-user"></i>{{ row.role_name }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="role_id" label="角色标识" width="220" />
           <el-table-column label="线索管理" min-width="150">
-            <template slot-scope="scope">
-              <el-tag :type="hasPermission(scope.row, 'manage') ? 'success' : 'info'" size="mini">
-                {{ hasPermission(scope.row, 'manage') ? '可管理' : '未开通' }}
+            <template v-slot="{ row }">
+              <el-tag :type="hasPermission(row, 'manage') ? 'success' : 'info'" size="mini">
+                {{ hasPermission(row, 'manage') ? '可管理' : '未开通' }}
               </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="来源范围" min-width="260">
-            <template slot-scope="scope">
-              <span v-if="scope.row.role_id === 'admin'" class="muted-text">全部来源</span>
+            <template v-slot="{ row }">
+              <span v-if="row.role_id === 'admin'" class="muted-text">全部来源</span>
               <template v-else>
-                <el-tag v-for="source in visibleSources(scope.row)" :key="source" class="source-tag" size="mini">{{ sourceLabel(source) }}</el-tag>
-                <span v-if="!visibleSources(scope.row).length" class="muted-text">未配置</span>
+                <el-tag v-for="source in visibleSources(row)" :key="source" class="source-tag" size="mini">{{ sourceLabel(source) }}</el-tag>
+                <span v-if="!visibleSources(row).length" class="muted-text">未配置</span>
               </template>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="120" fixed="right">
-            <template slot-scope="scope">
-              <el-button v-if="scope.row.role_id !== 'admin'" type="text" :size="$global.size" @click="editRole(scope.row)">配置权限</el-button>
+            <template v-slot="{ row }">
+              <el-button v-if="row.role_id !== 'admin'" type="text" :size="$global.size" @click="editRole(row)">配置权限</el-button>
               <span v-else class="muted-text">默认全部</span>
             </template>
           </el-table-column>

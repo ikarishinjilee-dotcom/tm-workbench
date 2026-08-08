@@ -118,7 +118,7 @@
         </div>
         <el-table :data="data.tableData" style="width: 100%">
           <el-table-column label="姓名">
-            <template slot-scope="{ row }">
+            <template v-slot="{ row }">
               <el-form v-if="row.edit">
                 <el-form-item>
                   <el-input v-model="row.date" size="small" />
@@ -129,7 +129,7 @@
           </el-table-column>
 
           <el-table-column label="员工编号">
-            <template slot-scope="{ row }">
+            <template v-slot="{ row }">
               <el-form v-if="row.edit">
                 <el-form-item>
                   <el-input v-model="row.name" size="small" />
@@ -140,7 +140,7 @@
           </el-table-column>
 
           <el-table-column label="所属部门">
-            <template slot-scope="{ row }">
+            <template v-slot="{ row }">
               <el-form v-if="row.edit">
                 <el-form-item>
                   <el-input v-model="row.address" size="small" />
@@ -151,7 +151,7 @@
           </el-table-column>
 
           <el-table-column align="center" label="操作" width="120" :resizable="false">
-            <template slot-scope="{ row }">
+            <template v-slot="{ row }">
               <el-tooltip v-if="row.edit" content="保存" placement="top">
                 <el-button type="success" size="small" icon="el-icon-check" @click="checkEditSaveOk(row)" />
               </el-tooltip>

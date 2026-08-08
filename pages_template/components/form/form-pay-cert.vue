@@ -7,17 +7,17 @@
       <el-table :data="certList" style="width: 100%">
         <el-table-column prop="tips" label="说明" minWidth="300"> </el-table-column>
         <el-table-column prop="name" label="选择证书" minWidth="300">
-          <template slot-scope="scope">
-            <text style="margin-right: 20px">{{ scope.row.name }}</text>
-            <el-button type="success" @click="upload(scope.row)" size="mini" plain> {{ scope.row.content ? '已' : '' }}选择 {{ scope.row.file }} </el-button>
-            <text style="margin-left: 20px; color: #c2e7b0" v-if="scope.row.content && scope.row.file === scope.row.name"> √ </text>
-            <text style="margin-left: 20px; color: red" v-if="scope.row.content && scope.row.file !== scope.row.name" @click="upload(scope.row)"> × </text>
+          <template v-slot="{ row }">
+            <text style="margin-right: 20px">{{ row.name }}</text>
+            <el-button type="success" @click="upload(row)" size="mini" plain> {{ row.content ? '已' : '' }}选择 {{ row.file }} </el-button>
+            <text style="margin-left: 20px; color: #c2e7b0" v-if="row.content && row.file === row.name"> √ </text>
+            <text style="margin-left: 20px; color: red" v-if="row.content && row.file !== row.name" @click="upload(row)"> × </text>
           </template>
         </el-table-column>
         <el-table-column prop="key4" label="选择后可复制" minWidth="200">
-          <template slot-scope="scope">
-            <el-button type="success" @click="copy(scope.row.name)" size="mini" plain v-if="scope.row.content && scope.row.file === scope.row.name"> 复制 </el-button>
-            <!-- 	<el-button type="success" size="mini" plain v-if="scope.row.content && scope.row.file === scope.row.name"> 请复制下方证书内容 </el-button> -->
+          <template v-slot="{ row }">
+            <el-button type="success" @click="copy(row.name)" size="mini" plain v-if="row.content && row.file === row.name"> 复制 </el-button>
+            <!-- 	<el-button type="success" size="mini" plain v-if="row.content && row.file === row.name"> 请复制下方证书内容 </el-button> -->
           </template>
         </el-table-column>
       </el-table>
