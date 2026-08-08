@@ -106,6 +106,13 @@ Vue.component('StatusTag', StatusTag);
 // 引入 自定义全局css 样式
 import '@/common/css/app.scss';
 
+// H5 端才需要的全局样式：uni-admin 的 uni.css（含 ~ 兄弟选择器，小程序 wxss 不支持）
+// 与 uni-icons.css（含字体）。JS 条件编译比 SCSS 内嵌 @if/#ifdef 更可靠。
+// #ifdef H5
+import '@/common/uni-admin/css/uni.css';
+import '@/common/uni-admin/css/uni-icons.css';
+// #endif
+
 Vue.config.productionTip = false;
 
 App.mpType = 'app';

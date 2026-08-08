@@ -173,13 +173,8 @@
    * 特别注意，如果启动时报scss相关的错误，请卸载你的scss插件，重新安装
    * 安装地址：https://ext.dcloud.net.cn/plugin?id=2046
    */
-  /* 此为uni-admin的样式，如果你不使用uni-admin的官方插件，可以不需要加载这些样式 */
-  /* uni.css 含 uni-page-head ~ uni-page-wrapper 等通用兄弟选择器，微信小程序 wxss 编译器不支持，仅 H5 端引入 */
-  /* #ifdef H5 */
-  @import '@/common/uni-admin/css/uni.css';
-  @import '@/common/uni-admin/css/uni-icons.css';
-  /* #endif */
-  /* 此为uni-admin的样式，如果你不使用uni-admin的官方插件，可以不需要加载这些样式 */
+  /* uni.css 含 ~ 兄弟选择器、uni-icons.css 含字体，在微信小程序 wxss 中无法编译；
+     移到 main.js 通过 JS 条件编译引入，避免 SCSS 嵌套 @import 在小程序端展开后仍被引入 */
 
   .customer-profile-dialog .vk-data-form > .el-form {
     display: grid !important;
