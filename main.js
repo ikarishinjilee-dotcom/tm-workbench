@@ -67,17 +67,24 @@ import 'vk-unicloud-admin-ui/theme/index.css';
 Vue.use(vkAdminUI);
 
 // 自动注册全局组件（必须加在Vue.use(vkAdminUI);的后面）
-const modulesFiles = require.context('./components', true, /\.vue$/);
-modulesFiles.keys().map((modulePath, index) => {
-  const moduleNames = modulePath.replace(/^\.\/(.*)\.\w+$/, '$1');
-  const moduleSplit = moduleNames.split('/');
-  const moduleName = moduleSplit[0];
-  if (moduleSplit.length === 2 && moduleName === moduleSplit[1]) {
-    const value = modulesFiles(modulePath);
-    let moduleItem = value.default;
-    Vue.component(moduleName, moduleItem);
-  }
-});
+// 注意：微信小程序端编译要求 Vue.component 的第一个参数必须是静态字符串，
+// 不能使用 require.context 动态遍历注册（会报 "Vue.component()的第一个参数必须为静态字符串"）。
+// 因此改为静态 import + 显式注册，组件名与原来的动态注册规则保持一致。
+import customDemo from '@/components/custom-demo/custom-demo.vue';
+import customEditorTinymce from '@/components/custom-editor-tinymce/custom-editor-tinymce.vue';
+import MessageCenter from '@/components/MessageCenter/MessageCenter.vue';
+import vkDataInputEditor from '@/components/vk-data-input-editor/vk-data-input-editor.vue';
+import vkDataInputFileSelect from '@/components/vk-data-input-file-select/vk-data-input-file-select.vue';
+import vkDataPageHeader from '@/components/vk-data-page-header/vk-data-page-header.vue';
+import vkDataQrcode from '@/components/vk-data-qrcode/vk-data-qrcode.vue';
+
+Vue.component('custom-demo', customDemo);
+Vue.component('custom-editor-tinymce', customEditorTinymce);
+Vue.component('MessageCenter', MessageCenter);
+Vue.component('vk-data-input-editor', vkDataInputEditor);
+Vue.component('vk-data-input-file-select', vkDataInputFileSelect);
+Vue.component('vk-data-page-header', vkDataPageHeader);
+Vue.component('vk-data-qrcode', vkDataQrcode);
 
 // 显式注册根目录下的单文件组件（require.context 不会自动注册 length===1 的文件）。
 import StatusTag from '@/components/StatusTag.vue';
